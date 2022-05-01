@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+# Makefiles
+CMakeCache.txt
+CMakeFiles/
+Makefile
+Photon_Mapping
+cmake_install.cmake
+
+# Vim swap files
+*.swp
