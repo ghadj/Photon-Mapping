@@ -5,13 +5,13 @@ a CPU renderer and test on a variation of the Cornell Box scene.
 
 ### Table of Contents
 
-1. [Implementation](#implementation)
+1. [Implementation](#1-implementation)
 
-    1.1 [Photon Tracing](#photon-tracing)
+    1.1 [Photon Tracing](#11-photon-tracing)
 
-        1.1.1 [The balanced kd-tree data structure](#the-balanced-kd-tree-data-structure)
+      1.1.1 [The balanced kd-tree data structure](#the-balanced-kd-tree-data-structure)
 
-    1.2 [Rendering Pass](#rendering-pass)
+    1.2 [Rendering Pass](#12-rendering-pass)
 
 2. [Evaluation](#evaluation)
 
@@ -126,4 +126,5 @@ Avro, J., & Kirk, D. B. (1990). Particle transport and image synthesis in comput
 
 ### Other useful links
 
-https://www.cs.cmu.edu/afs/cs/academic/class/15462-s12/www/lec_slides/lec18.pdf
++ [CMU Lecture slides on Photon mapping](https://www.cs.cmu.edu/afs/cs/academic/class/15462-s12/www/lec_slides/lec18.pdf)
+
