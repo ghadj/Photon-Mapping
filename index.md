@@ -9,7 +9,7 @@ a CPU renderer and test on a variation of the Cornell Box scene.
 
     1.1 [Photon Tracing](#11-photon-tracing)
 
-      1.1.1 [The balanced kd-tree data structure](#the-balanced-kd-tree-data-structure)
+    1.1.1 [The balanced kd-tree data structure](#the-balanced-kd-tree-data-structure)
 
     1.2 [Rendering Pass](#12-rendering-pass)
 
@@ -78,7 +78,24 @@ else
 ```
 
 That way we keep fewer photons with similar power and terminate un-important
-ones.
+ones. For the purposes of this project, we assume ideally diffused surfaces,
+i.e., every ray of light incident on the surface is scattered equally in all
+directions. The reflection of light is simulated using Monte Carlo integration,
+by sampling the Bidirectional Reflectance Distribution Function (BRDF). The
+following pseudocode is based on (TODO add reference).
+
+```
+uniform_random_PSA(n) {
+    z = sqrt(rand())
+    r = sqrt(1.0 - z * z)
+    φ = 2.0 * π * rand()
+    x = r * cos(φ)
+    y = r * sin(φ)
+    [u, v, w] = createLocalCoord(n)    // local (orthogonal) coordinate
+                                       // system around n
+    return x*u + y*v + z*w
+}
+```
 
 Note that the photon map is view independent, and therefore it can be 
 utilized to render the scene from any desired view. 
@@ -127,4 +144,6 @@ Avro, J., & Kirk, D. B. (1990). Particle transport and image synthesis in comput
 ### Other useful links
 
 + [CMU Lecture slides on Photon mapping](https://www.cs.cmu.edu/afs/cs/academic/class/15462-s12/www/lec_slides/lec18.pdf)
+
++ [UCI Lecture slides on Rendering Equation & Monte Carlo Path Tracing](https://www.ics.uci.edu/~shz/courses/cs295/slides/6_render_equ.pdf)
 
