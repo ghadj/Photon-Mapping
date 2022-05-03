@@ -82,7 +82,7 @@ ones. For the purposes of this project, we assume ideally diffused surfaces,
 i.e., every ray of light incident on the surface is scattered equally in all
 directions. The reflection of light is simulated using Monte Carlo integration,
 by sampling the Bidirectional Reflectance Distribution Function (BRDF). The
-following pseudocode is based on (TODO add reference).
+following pseudocode is based on (Zhao, 2017).
 
 ```
 uniform_random_PSA(n) {
@@ -141,9 +141,9 @@ Jensen, H. W., & Christensen, N. J. (2000). A practical guide to global illumina
 
 Avro, J., & Kirk, D. B. (1990). Particle transport and image synthesis in computer graphics. In SIGGRAPH’90: Proc. of 17th Conf. on Computer Graphics and Interactive Techniques (pp. 63-66).
 
+Zhao, S. (2017). Rendering Equation & Monte Carlo Path Tracing. CS295, Spring 2017, University of California, Irvine. 
+
 ### Other useful links
 
 + [CMU Lecture slides on Photon mapping](https://www.cs.cmu.edu/afs/cs/academic/class/15462-s12/www/lec_slides/lec18.pdf)
-
-+ [UCI Lecture slides on Rendering Equation & Monte Carlo Path Tracing](https://www.ics.uci.edu/~shz/courses/cs295/slides/6_render_equ.pdf)
 
