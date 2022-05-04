@@ -15,11 +15,25 @@ private:
      
 public:
     Photon(vec3 normal, vec3 position, vec3 energy) 
-        : normal(normal), position(position), energy(energy), bounces(1){}
+        : normal(normal), position(position), energy(energy), bounces(0){}
+
+    vec3 getNormal() const
+    {
+        return this->normal;
+    }
+
+    vec3 getPosition() const
+    {
+        return this->position;
+    }
+
+    int getBounces() const
+    {
+        return this->bounces;
+    }
 
     //TODO
     //float operator[](int i) const { return position[i]; }
 };
-
 
 #endif
