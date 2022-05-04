@@ -111,7 +111,7 @@ void KdTree::searchKNearestNode(int nodeIdx, const vec3& queryPoint, int k,
     }
 }
 
-KdTree::KdTree(const Photon* photons, int nPhotons) 
+void KdTree::setPhotons(const Photon* photons, int nPhotons) 
 {
     this->photons = photons;
     this->nPhotons = nPhotons;

@@ -8,9 +8,11 @@
 using namespace std;
 using glm::vec3;
 
-class KdTree {
+class KdTree 
+{
 private:
-    struct Node {
+    struct Node 
+    {
         int axis;           // separation axis(x=0, y=1, z=2)
         int idx;            // index of median point
         int leftChildIdx;   // index of left child
@@ -30,7 +32,8 @@ private:
     void searchKNearestNode(int nodeIdx, const vec3& queryPoint, 
                             int k, KNNQueue& queue) const;
 public:
-    KdTree(const Photon* photons, int nPhotons);
+    KdTree(){};
+    void setPhotons(const Photon* photons, int nPhotons);
     void buildTree(); 
     vector<int> searchKNearest(const vec3& queryPoint, int k, 
                                float& maxDist2) const;
