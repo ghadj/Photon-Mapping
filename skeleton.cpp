@@ -1,8 +1,12 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <SDL.h>
+#include <random>
 #include "SDLauxiliary.h"
 #include "TestModel.h"
+
+#include "photon.h"
+#include "kdtree.h"
 
 using namespace std;
 using glm::vec3;
@@ -12,8 +16,8 @@ using glm::mat3;
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 const float TRANSL_STEP = 0.1;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
@@ -45,6 +49,8 @@ bool ClosestIntersection(vec3, vec3, const vector<Triangle>&, Intersection&);
 vec3 DirectLight(const Intersection&);
 void Update();
 void Draw();
+void emitPhotons(int nPhotons);
+void trace_photon(const Photon& p);
 
 int main( int argc, char* argv[] )
 {
@@ -210,4 +216,55 @@ vec3 DirectLight(const Intersection& i)
            return vec3(0, 0, 0); // return black
     }
     return (lightColor*max(glm::dot(r_hat, n_hat), 0.0f))/(4.0f*PI*r*r);
+}
+
+vector<Photon> photons;
+KdTree photonmap;
+
+void emitPhotons(int nPhotons)
+{
+    float x,y,z;
+    vec3 photon_normal;
+
+    for(int i=0; i<nPhotons; i++)
+    {
+        do { // use simple rejection sampling to find diffuse photon direction
+            x = rand() * 2 - 1;
+            y = rand() * 2 - 1;
+            z = rand() * 2 - 1;
+        } while ( x*x + y*y + z*z > 1 );
+        photon_normal = vec3(x,y,z);
+        trace_photon(Photon(photon_normal, lightPos, lightColor/(float)nPhotons));
+    }
+}
+
+vec3 uniform_random_normal(const vec3& n) 
+{
+    float z = sqrt(rand());
+    float r = sqrt(1.0 - z * z);
+    float phi = 2.0 * PI * rand();
+    float x = r * cos(phi);
+    float y = r * sin(phi);
+
+    // local orthogonal coordinate system around n
+    vec3 w = n;
+    vec3 u = glm::normalize(glm::cross(w.x>.1 ? vec3(0,1,0) : vec3(1,0,0), w));
+    vec3 v = glm::cross(w, u);
+
+    return x*u + y*v + z*w;
+}
+
+void trace_photon(const Photon& p)
+{
+    Intersection i;
+   
+    if(!ClosestIntersection(p.getPosition(), p.getNormal(), triangles, i))
+        return;
+
+    Photon p2(uniform_random_normal(triangles[i.triangleIndex].normal),
+              i.position, triangles[i.triangleIndex].color);
+    photons.push_back(p2);
+
+    if (rand()<0.5)
+        trace_photon(p2);
 }
