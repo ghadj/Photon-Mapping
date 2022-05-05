@@ -11,14 +11,14 @@
 using namespace std;
 using glm::vec3;
 using glm::mat3;
+using glm::ivec2;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
-const float TRANSL_STEP = 0.1;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
 int t; // time
@@ -31,8 +31,11 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 14.f * vec3(1, 1, 1);
-vec3 indirectLight = 0.5f*vec3( 1, 1, 1 );
+vec3 lightColor = 2.f * vec3(1, 1, 1);
+vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
+
+int k = 600; // nearest photons TODO
+float maxDist2 = 1.0; // TODO
 
 // Intersection
 struct Intersection
@@ -42,33 +45,35 @@ struct Intersection
     int triangleIndex;
 };
 
+vector<Photon> photons;
+KdTree photonmap;
+
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
 bool ClosestIntersection(vec3, vec3, const vector<Triangle>&, Intersection&);
 vec3 DirectLight(const Intersection&);
-void Update();
 void Draw();
 void emitPhotons(int nPhotons);
-void trace_photon(const Photon& p);
+void trace_photon(Photon& p);
+void DrawPhoton(Photon p);
+void DrawPhotonPath(Photon p);
+float random_num(float min=-1, float max=1);
 
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     LoadTestModel(triangles);
-	while( NoQuitMessageSDL() )
-	{
-		Update();
-		Draw();
-	}
+    
+    int nPhotons = 200000;
+    emitPhotons(nPhotons);
+    photonmap.setPhotons(photons.data(), photons.size());
+    photonmap.buildTree();
+    cout<<"Photon-map size: "<<photons.size()<<'\n';
 
-	//SDL_SaveBMP( screen, "screenshot.bmp" );
-	return 0;
-}
-
-void Update()
-{
+    Draw();
+    
     // Compute frame time:
     int t2 = SDL_GetTicks();
     float dt = float(t2-t);
@@ -76,46 +81,9 @@ void Update()
     cout << "Render time: " << dt << " ms." << endl;
     Uint8* keystate = SDL_GetKeyState( 0 );
 
-    // 4. Moving the camera
-    if( keystate[SDLK_UP] )
-    {
-        cameraPos[2] += TRANSL_STEP;
-    }
-    if( keystate[SDLK_DOWN] )
-    {
-        cameraPos[2] -= TRANSL_STEP;
-    }
-    if( keystate[SDLK_LEFT] )
-    {
-        yaw -= TRANSL_STEP;
-    }
-    if( keystate[SDLK_RIGHT] )
-    {
-        yaw += TRANSL_STEP;
-    }
-
-    // Set camera rotation matrix
-    R = mat3(cos(yaw),  0, sin(yaw),
-                0,      1,    0,   
-             -sin(yaw), 0, cos(yaw));
-
-    // 5. Illumination
-    if( keystate[SDLK_w] )
-    {
-        lightPos.y -= TRANSL_STEP;
-    }
-    if( keystate[SDLK_s] )
-    {
-        lightPos.y += TRANSL_STEP;
-    }
-    if( keystate[SDLK_d] )
-    {
-        lightPos.x += TRANSL_STEP;
-    }
-    if( keystate[SDLK_a] )
-    {
-        lightPos.x -= TRANSL_STEP;
-    }
+    SDL_SaveBMP( screen, "screenshot.bmp" );
+	
+	return 0;
 }
 
 void Draw()
@@ -134,21 +102,17 @@ void Draw()
             if(ClosestIntersection(R*cameraPos, dir, triangles,
                                    closestIntersection))
             {
-                // 3. Tracing Rays
-                //color = triangles[closestIntersection.triangleIndex].color;
-			    
-                // 5. Illumination (Figure 4)
-                //color = DirectLight(closestIntersection);
+                vector<int> neighbor_photons_idx = 
+                              photonmap.searchKNearest(closestIntersection.position, 
+                                                       k, maxDist2);
 
-                // 5. Illumination (Figure 6)
-                //color = triangles[closestIntersection.triangleIndex].color * 
-                //        DirectLight(closestIntersection);
+                color = vec3(0,0,0);
+                for(int i=0; i<neighbor_photons_idx.size(); i++)
+                    color += photons[neighbor_photons_idx[i]].getEnergy();
+                color /= (float) k;
 
-                // 5.2 Indirect Illumation (Figure 8)
-                color = triangles[closestIntersection.triangleIndex].color * 
-                        (DirectLight(closestIntersection) + indirectLight);
-
-                PutPixelSDL(screen, x, y, color);
+                PutPixelSDL(screen, x, y, triangles[closestIntersection.triangleIndex].color *
+                            color+indirectLight);
             }
 		}
 	}
@@ -157,6 +121,12 @@ void Draw()
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+}
+
+// Backface culling
+bool isVisible(vec3 n, vec3 s)
+{
+    return glm::dot(n, s)<=0.0;
 }
 
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
@@ -168,6 +138,9 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 
     for(int t_i=0; t_i<triangles.size(); t_i++)
     {
+        if(!isVisible(triangles[t_i].normal, dir))
+            continue;
+
         v0 = triangles[t_i].v0;
         v1 = triangles[t_i].v1;
         v2 = triangles[t_i].v2;
@@ -218,8 +191,11 @@ vec3 DirectLight(const Intersection& i)
     return (lightColor*max(glm::dot(r_hat, n_hat), 0.0f))/(4.0f*PI*r*r);
 }
 
-vector<Photon> photons;
-KdTree photonmap;
+float random_num(float min, float max)
+{
+	float r = (float)rand() / (float)RAND_MAX;
+	return min + r * (max - min);
+}
 
 void emitPhotons(int nPhotons)
 {
@@ -229,42 +205,99 @@ void emitPhotons(int nPhotons)
     for(int i=0; i<nPhotons; i++)
     {
         do { // use simple rejection sampling to find diffuse photon direction
-            x = rand() * 2 - 1;
-            y = rand() * 2 - 1;
-            z = rand() * 2 - 1;
+            x = random_num();
+            y = random_num();
+            z = random_num();
         } while ( x*x + y*y + z*z > 1 );
         photon_normal = vec3(x,y,z);
-        trace_photon(Photon(photon_normal, lightPos, lightColor/(float)nPhotons));
+        Photon p(photon_normal, lightPos, lightColor);
+
+        trace_photon(p);
     }
 }
 
 vec3 uniform_random_normal(const vec3& n) 
 {
-    float z = sqrt(rand());
+    float z = sqrt(random_num(0));
     float r = sqrt(1.0 - z * z);
-    float phi = 2.0 * PI * rand();
+    float phi = 2.0 * PI * random_num(0);
     float x = r * cos(phi);
     float y = r * sin(phi);
 
     // local orthogonal coordinate system around n
     vec3 w = n;
-    vec3 u = glm::normalize(glm::cross(w.x>.1 ? vec3(0,1,0) : vec3(1,0,0), w));
+    vec3 u = glm::normalize(glm::cross(abs(w.x)>.1 ? vec3(0,1,0) : 
+                            vec3(1,0,0), w));
     vec3 v = glm::cross(w, u);
 
     return x*u + y*v + z*w;
 }
 
-void trace_photon(const Photon& p)
+void trace_photon(Photon& p)
 {
     Intersection i;
    
-    if(!ClosestIntersection(p.getPosition(), p.getNormal(), triangles, i))
+    if(!ClosestIntersection(p.getSource(), p.getNormal(), triangles, i))
+    {
         return;
+    }
+
+    p.setDestination(i.position);
+    photons.push_back(p);
+    DrawPhoton(p);
 
     Photon p2(uniform_random_normal(triangles[i.triangleIndex].normal),
-              i.position, triangles[i.triangleIndex].color);
-    photons.push_back(p2);
+              i.position, triangles[i.triangleIndex].color/(float)(p.getBounces()+1),
+              p.getBounces()+1);
 
-    if (rand()<0.5)
+    if (random_num(0)<0.8)
         trace_photon(p2);
 }
+
+ivec2 VertexShader(vec3 p)
+{
+    ivec2 p2;
+    vec3 p_prime = p-cameraPos;
+    p2.x = focalLength*(p_prime.x/p_prime.z) + SCREEN_WIDTH/2;
+    p2.y = focalLength*(p_prime.y/p_prime.z) + SCREEN_HEIGHT/2;
+
+    return p2;
+}
+
+void DrawPhoton(Photon p)
+{
+    ivec2 p2 = VertexShader(p.getDestination());
+    PutPixelSDL(screen, p2.x, p2.y, p.getEnergy());
+}
+
+void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
+{
+    int N = result.size();
+    glm::vec2 step = glm::vec2(b-a) / float(max(N-1,1));
+    glm::vec2 current( a );
+    for( int i=0; i<N; ++i )
+    {
+        result[i] = current;
+        current += step;
+    }
+}
+
+void DrawPhotonPath(Photon p)
+{
+    ivec2 a = VertexShader(p.getSource());
+    ivec2 b = VertexShader(p.getDestination());
+
+    //printf("a(%d, %d)", a.x, a.y);
+    //printf("b(%d, %d)\n", b.x, b.y);
+
+    ivec2 delta = glm::abs(a - b);
+    int pixels = glm::max(delta.x, delta.y) + 1;
+    vector<ivec2> line(pixels);
+    Interpolate(a, b, line);
+
+    for(int l=0; l<line.size(); l++)
+    {
+        PutPixelSDL(screen, line[l].x, line[l].y, p.getEnergy());
+    }
+}
+
