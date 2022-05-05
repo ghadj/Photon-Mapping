@@ -97,6 +97,10 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// Back wall
 	triangles.push_back( Triangle( G, D, C, white ) );
 	triangles.push_back( Triangle( G, H, D, white ) );
+    
+	// Front wall
+	triangles.push_back( Triangle( F, E, B, white ) );
+	triangles.push_back( Triangle( B, E, A, white ) );
 
 	// ---------------------------------------------------------------------------
 	// Short block
