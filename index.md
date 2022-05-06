@@ -129,6 +129,15 @@ tree, and adds photons to a list if they are within a certain distance.
 
 Ray tracer... 
 
+TODO
+
++ image of photons positions
++ image of photons paths
++ different renders varying number of photons
++ photonmap for direct & indirect lighting
++ direct lighting using ray-tracing + photonmap for indirect light
++ caustics?
+
 ### 2. Evaluation
 
 ### 3. Discussion & Conclusion
