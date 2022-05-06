@@ -33,11 +33,11 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 8.f * vec3(1, 1, 1);
+vec3 lightColor = 7.f * vec3(1, 1, 1);
 vec3 lightPower = 500.f * vec3(1, 1, 1);
 vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
 
-int k = 500; // nearest photons TODO
+int k = 700; // nearest photons TODO
 float filter_const = 1;
 
 // Intersection
@@ -48,7 +48,7 @@ struct Intersection
     int triangleIndex;
 };
 
-int nPhotons = 100000;
+int nPhotons = 200000;
 vector<Photon> photons;
 KdTree photonmap;
 
