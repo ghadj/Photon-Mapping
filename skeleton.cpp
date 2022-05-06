@@ -19,8 +19,8 @@ using glm::vec2;
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
 int t; // time
@@ -33,7 +33,7 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 1.f * vec3(1, 1, 1);
+vec3 lightColor = 8.f * vec3(1, 1, 1);
 vec3 lightPower = 500.f * vec3(1, 1, 1);
 vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
 
@@ -116,11 +116,11 @@ vec3 getRadianceEstimate(Intersection i)
     }
     color /= (1 - 2/(3*filter_const) * PI * r_sqr);
 
-    //color += DirectLight(i); // Direct light
+    color += DirectLight(i); // Direct light
     color *= triangles[i.triangleIndex].color;
 
     // TODO remove
-    cout<<"color: ("<<color.x<<','<<color.y<<','<<color.z<<")\n";
+    //cout<<"color: ("<<color.x<<','<<color.y<<','<<color.z<<")\n";
 
     return color;
 }
@@ -272,7 +272,9 @@ void trace_photon(Photon& p)
     }
 
     p.setDestination(i.position);
-    photons.push_back(p);
+
+    if(p.getBounces()!=0)
+        photons.push_back(p);
     
     //DrawPhoton(p);
 
