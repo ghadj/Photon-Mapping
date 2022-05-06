@@ -9,16 +9,18 @@
 #include "kdtree.h"
 
 using namespace std;
+
 using glm::vec3;
 using glm::mat3;
 using glm::ivec2;
+using glm::vec2;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
 int t; // time
@@ -31,11 +33,12 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 2.f * vec3(1, 1, 1);
+vec3 lightColor = 1.f * vec3(1, 1, 1);
+vec3 lightPower = 500.f * vec3(1, 1, 1);
 vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
 
-int k = 600; // nearest photons TODO
-float maxDist2 = 1.0; // TODO
+int k = 500; // nearest photons TODO
+float filter_const = 1;
 
 // Intersection
 struct Intersection
@@ -45,6 +48,7 @@ struct Intersection
     int triangleIndex;
 };
 
+int nPhotons = 100000;
 vector<Photon> photons;
 KdTree photonmap;
 
@@ -59,6 +63,7 @@ void trace_photon(Photon& p);
 void DrawPhoton(Photon p);
 void DrawPhotonPath(Photon p);
 float random_num(float min=-1, float max=1);
+bool isVisible(vec3 n, vec3 s);
 
 int main( int argc, char* argv[] )
 {
@@ -66,7 +71,6 @@ int main( int argc, char* argv[] )
 	t = SDL_GetTicks();	// Set start value for timer.
     LoadTestModel(triangles);
     
-    int nPhotons = 200000;
     emitPhotons(nPhotons);
     photonmap.setPhotons(photons.data(), photons.size());
     photonmap.buildTree();
@@ -86,13 +90,47 @@ int main( int argc, char* argv[] )
 	return 0;
 }
 
+vec3 getRadianceEstimate(Intersection i)
+{
+    // Jensen eq. (11)
+    vec3 color = vec3(0,0,0);
+    vec3 delta_phi;
+    float wpc; // weight
+    float dp;  // distance between photon and point
+    float r_sqr = 0.0; // max sqr distance from k-th photon
+
+    // Get k-nearest photons
+    vector<NeighborPhoton> neighbor_photons = photonmap.searchKNearest(i.position, k, r_sqr);
+
+    for(int p=0; p<neighbor_photons.size(); p++)
+    {
+        // Cone-filter [Jensen96c]
+        dp = neighbor_photons[p].dist;
+        wpc = 1 - dp/(k*sqrt(r_sqr));
+        
+        // Photon power
+        delta_phi = max(glm::dot(-photons[neighbor_photons[p].index].getNormal(), 
+                        triangles[i.triangleIndex].normal), 0.0f) *
+                        photons[neighbor_photons[p].index].getEnergy();  
+        color += wpc*delta_phi;
+    }
+    color /= (1 - 2/(3*filter_const) * PI * r_sqr);
+
+    //color += DirectLight(i); // Direct light
+    color *= triangles[i.triangleIndex].color;
+
+    // TODO remove
+    cout<<"color: ("<<color.x<<','<<color.y<<','<<color.z<<")\n";
+
+    return color;
+}
+
 void Draw()
 {
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
     SDL_FillRect(screen, 0, 0);
-    vec3 color, dir;
     Intersection closestIntersection;
 	for(int y=0; y<SCREEN_HEIGHT; ++y)
 	{
@@ -102,17 +140,7 @@ void Draw()
             if(ClosestIntersection(R*cameraPos, dir, triangles,
                                    closestIntersection))
             {
-                vector<int> neighbor_photons_idx = 
-                              photonmap.searchKNearest(closestIntersection.position, 
-                                                       k, maxDist2);
-
-                color = vec3(0,0,0);
-                for(int i=0; i<neighbor_photons_idx.size(); i++)
-                    color += photons[neighbor_photons_idx[i]].getEnergy();
-                color /= (float) k;
-
-                PutPixelSDL(screen, x, y, triangles[closestIntersection.triangleIndex].color *
-                            color+indirectLight);
+                PutPixelSDL(screen, x, y, getRadianceEstimate(closestIntersection));
             }
 		}
 	}
@@ -209,8 +237,9 @@ void emitPhotons(int nPhotons)
             y = random_num();
             z = random_num();
         } while ( x*x + y*y + z*z > 1 );
+
         photon_normal = vec3(x,y,z);
-        Photon p(photon_normal, lightPos, lightColor);
+        Photon p(photon_normal, lightPos, lightPower/(float) nPhotons);
 
         trace_photon(p);
     }
@@ -244,11 +273,14 @@ void trace_photon(Photon& p)
 
     p.setDestination(i.position);
     photons.push_back(p);
-    DrawPhoton(p);
+    
+    //DrawPhoton(p);
 
-    Photon p2(uniform_random_normal(triangles[i.triangleIndex].normal),
-              i.position, triangles[i.triangleIndex].color/(float)(p.getBounces()+1),
-              p.getBounces()+1);
+    // New photon
+    Photon p2(uniform_random_normal(triangles[i.triangleIndex].normal),   // normal vector
+              i.position,                                                 // position of source
+              p.getEnergy()*triangles[i.triangleIndex].color/(float) sqrt(p.getBounces()+1), // power
+              p.getBounces()+1);                                          // increase bounces
 
     if (random_num(0)<0.8)
         trace_photon(p2);
@@ -273,8 +305,8 @@ void DrawPhoton(Photon p)
 void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
 {
     int N = result.size();
-    glm::vec2 step = glm::vec2(b-a) / float(max(N-1,1));
-    glm::vec2 current( a );
+    vec2 step = vec2(b-a) / float(max(N-1,1));
+    vec2 current( a );
     for( int i=0; i<N; ++i )
     {
         result[i] = current;
@@ -286,9 +318,6 @@ void DrawPhotonPath(Photon p)
 {
     ivec2 a = VertexShader(p.getSource());
     ivec2 b = VertexShader(p.getDestination());
-
-    //printf("a(%d, %d)", a.x, a.y);
-    //printf("b(%d, %d)\n", b.x, b.y);
 
     ivec2 delta = glm::abs(a - b);
     int pixels = glm::max(delta.x, delta.y) + 1;

@@ -9,6 +9,12 @@
 using namespace std;
 using glm::vec3;
 
+struct NeighborPhoton
+{
+    int index;  // index of photon
+    float dist; // distance from query point
+};
+
 class KdTree 
 {
 private:
@@ -158,18 +164,19 @@ public:
         buildNode(indices.data(), nPhotons, 0);
     }
 
-    vector<int> searchKNearest(const vec3& queryPoint, int k, 
-                               float& maxDist2) const 
+    vector<NeighborPhoton> searchKNearest(const vec3& queryPoint, int k, 
+                                          float& maxDist2) const 
     {
         KNNQueue queue;
         searchKNearestNode(0, queryPoint, k, queue);
 
-        vector<int> ret(queue.size());
+        vector<NeighborPhoton> ret(queue.size());
         maxDist2 = 0;
         for (int i = 0; i < ret.size(); ++i) 
         {
             const auto& p = queue.top();
-            ret[i] = p.second;
+            ret[i].index = p.second;
+            ret[i].dist = sqrt(p.first);
             maxDist2 = max(maxDist2, p.first);
             queue.pop();
         }

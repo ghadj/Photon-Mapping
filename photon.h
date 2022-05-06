@@ -11,7 +11,7 @@ private:
     vec3 normal;
     vec3 source;
     vec3 destination;
-    vec3 energy;
+    vec3 energy; // incoming photon power
     int bounces;
      
 public:
