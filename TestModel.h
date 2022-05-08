@@ -37,17 +37,14 @@ public:
     float radius;
 
     Sphere(glm::vec3 center, float radius)
-        :center(center), radius(radius)
-    {
-
-    }
+        :center(center), radius(radius) {}
 };
 
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
 // -1 <= z <= +1
-void LoadTestModel( std::vector<Triangle>& triangles )
+void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& spheres)
 {
 	using glm::vec3;
 
@@ -103,7 +100,10 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle( B, E, A, white ) );
 
 	// ---------------------------------------------------------------------------
-	// Short block
+    spheres.push_back(Sphere(vec3(100, 70, 150), 70.0));
+     
+	// ---------------------------------------------------------------------------
+	/*/ Short block
 
 	A = vec3(290,0,114);
 	B = vec3(130,0, 65);
@@ -134,7 +134,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// TOP
 	triangles.push_back( Triangle(G,F,E,white) );
 	triangles.push_back( Triangle(G,H,F,white) );
-
+    */
 	// ---------------------------------------------------------------------------
 	// Tall block
 
@@ -192,6 +192,16 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 
 		triangles[i].ComputeNormal();
 	}
+
+	for( size_t i=0; i<spheres.size(); ++i )
+	{
+        spheres[i].radius *= 2/L;
+        spheres[i].center *= 2/L;
+
+		spheres[i].center -= vec3(1,1,1);
+		spheres[i].center.x *= -1;
+		spheres[i].center.y *= -1;
+    }
 }
 
 #endif

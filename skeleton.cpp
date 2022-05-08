@@ -19,10 +19,11 @@ using glm::vec2;
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
+vector<Sphere> spheres;
 int t; // time
 
 // Camera
@@ -33,11 +34,11 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 7.f * vec3(1, 1, 1);
-vec3 lightPower = 500.f * vec3(1, 1, 1);
+vec3 lightColor = 5.f * vec3(1, 1, 1);
+vec3 lightPower = 200.f * vec3(1, 1, 1);
 vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
 
-int k = 700; // nearest photons TODO
+int k = 500; // nearest photons TODO
 float filter_const = 1;
 
 // Intersection
@@ -46,9 +47,10 @@ struct Intersection
     vec3 position;
     float distance;
     int triangleIndex;
+    int sphereIndex;
 };
 
-int nPhotons = 200000;
+int nPhotons = 100000;
 vector<Photon> photons;
 KdTree photonmap;
 
@@ -64,19 +66,30 @@ void DrawPhoton(Photon p);
 void DrawPhotonPath(Photon p);
 float random_num(float min=-1, float max=1);
 bool isVisible(vec3 n, vec3 s);
+bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
+                     vec3& x0, vec3& x1,   // intersection points
+                     float& t0, float& t1); // distance from origin
+ivec2 VertexShader(vec3 p);
 
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
-    LoadTestModel(triangles);
+    LoadTestModel(triangles, spheres);
+    cout<<"Spheres size: "<<spheres.size()<<'\n';
+    cout<<"Radius: "<<spheres[0].radius<<'\n';
     
     emitPhotons(nPhotons);
     photonmap.setPhotons(photons.data(), photons.size());
     photonmap.buildTree();
     cout<<"Photon-map size: "<<photons.size()<<'\n';
 
-    Draw();
+    for(int i=0; i<photons.size(); i++)
+        DrawPhoton(photons[i]);
+    ivec2 x = VertexShader(spheres[0].center);
+                PutPixelSDL(screen, x[0], x[1], vec3(1,0,0));
+
+    //Draw();
     
     // Compute frame time:
     int t2 = SDL_GetTicks();
@@ -100,8 +113,8 @@ vec3 getRadianceEstimate(Intersection i)
     float r_sqr = 0.0; // max sqr distance from k-th photon
 
     // Get k-nearest photons
-    vector<NeighborPhoton> neighbor_photons = photonmap.searchKNearest(i.position, k, r_sqr);
-
+    vector<NeighborPhoton> neighbor_photons = photonmap.searchKNearest(i.position, 
+                                                                       k, r_sqr);
     for(int p=0; p<neighbor_photons.size(); p++)
     {
         // Cone-filter [Jensen96c]
@@ -119,9 +132,6 @@ vec3 getRadianceEstimate(Intersection i)
     color += DirectLight(i); // Direct light
     color *= triangles[i.triangleIndex].color;
 
-    // TODO remove
-    //cout<<"color: ("<<color.x<<','<<color.y<<','<<color.z<<")\n";
-
     return color;
 }
 
@@ -137,8 +147,7 @@ void Draw()
 		for(int x=0; x<SCREEN_WIDTH; ++x)
 		{
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
-            if(ClosestIntersection(R*cameraPos, dir, triangles,
-                                   closestIntersection))
+            if(ClosestIntersection(R*cameraPos, dir, triangles, closestIntersection))
             {
                 PutPixelSDL(screen, x, y, getRadianceEstimate(closestIntersection));
             }
@@ -157,37 +166,197 @@ bool isVisible(vec3 n, vec3 s)
     return glm::dot(n, s)<=0.0;
 }
 
-bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles,
+// Reference. Based on
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/
+// reflection-refraction-fresnel
+bool refract(const vec3& dir,            // direction of photon
+             const vec3& surface_normal, // surface normal
+             vec3& T,                    // refracted direction
+             const float& ior=1.5)       // index of refraction
+{ 
+    vec3 N = surface_normal; 
+    float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(dir, N)); 
+    float n1 = 1;
+    float n2 = ior; 
+    float n, c;
+    
+    if (cosi < 0) 
+    {
+        cosi *= -1; 
+    }
+    else 
+    {
+        std::swap(n1, n2); 
+        N *= -1; 
+    }
+
+    n = (n1/n2);
+    c = 1 - n*n * (1 - cosi * cosi); 
+
+    if(c<0) return false; 
+
+    T = n * dir + (n * cosi - sqrtf(c)) * N; 
+    return true;
+} 
+
+bool refractPhoton(Sphere s, Photon p, 
+                   Intersection& i, // Intersection point with sphere
+                   Intersection& j) // Intersection point after refraction
+{
+    vec3 sphere_normal = i.position - s.center; // normal at intersection point
+    vec3 Ti, Tj; // refracted direction
+    printf("\n\nSphere position center: (%f, %f, %f)\n", s.center.x, s.center.y, s.center.z);
+    printf("Intersection 1: (%f %f %f)\n", i.position.x, i.position.y, i.position.z);
+    cout<<"Distance: "<<i.distance<<'\n';
+    
+    // Refract from outside
+    if(!refract(p.getNormal(), sphere_normal, Ti)) return false;
+    printf("T1: (%f %f %f)\n", Ti.x, Ti.y, Ti.z);
+
+    // Find intersection from inside
+    vec3 x0, x1;
+    float t0, t1;
+    bool b = intersectSphere(s, i.position, Ti, x0, x1, t0, t1);
+    sphere_normal = x1 - s.center;
+    //if(b) cout<<"TRUE B\n"; else cout<<"FALSE\n";
+    printf("Intersection 2 x0: (%f %f %f)\n", x0.x, x0.y, x0.z);
+    printf("Intersection 2 x1: (%f %f %f)\n", x1.x, x1.y, x1.z);
+
+    // Refract to ouside
+    if(!refract(Ti, sphere_normal, Tj)) return false;
+    // Find intersection ouside
+    ClosestIntersection(x1, Tj, triangles, j);
+    printf("Intersection 3: (%f %f %f)\n", j.position.x, j.position.y, j.position.z);
+    return true;
+}
+
+// Reference. Based on
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/
+// reflection-refraction-fresnel
+void fresnel(const vec3 &I, const vec3 &N, const float &ior, float &kr) 
+{ 
+    float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(I, N)); 
+    float etai = 1, etat = ior; 
+    if (cosi > 0) { std::swap(etai, etat); } 
+    
+    // Snell's law
+    float sint = etai / etat * sqrtf(std::max(0.f, 1 - cosi * cosi)); 
+    // Total internal reflection
+    if (sint >= 1) { 
+        kr = 1; 
+    } 
+    else { 
+        float cost = sqrtf(std::max(0.f, 1 - sint * sint)); 
+        cosi = fabsf(cosi); 
+        float Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost)); 
+        float Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost)); 
+        kr = (Rs * Rs + Rp * Rp) / 2; 
+    } 
+    // As a consequence of the conservation of energy, transmittance is given by:
+    // kt = 1 - kr;
+} 
+
+bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
+                     vec3& x0, vec3& x1,   // intersection points
+                     float& t0, float& t1) // distance from origin
+{ 
+    vec3 center_trn = start- s.center; // translated center of sphere
+    float A = glm::dot(dir, dir);   
+    float B = 2.0 * glm::dot(dir, center_trn);   
+    float C = glm::dot(center_trn, center_trn) - s.radius*s.radius; 
+    float Delta = B*B - 4*A*C; 
+
+    if(Delta == 0.0)      // there is only one solution
+    {
+        t0 = t1 = - 0.5 * B / A;
+        x0 = start + t0*dir;
+        x1 = start + t1*dir;
+        return true;
+    }
+    else if (Delta > 0.0) // there are two solutions
+    { 
+        t0 = (-B + sqrt(Delta))/(2*A);
+        t1 = (-B - sqrt(Delta))/(2*A);
+
+        if(t0<0 && t1<0) return false;
+
+        // Note: now there is the possibility one of t0/t1 to be negative.
+        // In that case the origin of the ray is inside the sphere.
+    
+        // Swap so that t1 corresponds to the farthest intersection point
+        if (t0 > t1) std::swap(t0, t1); 
+
+        x0 = start + t0*dir;
+        x1 = start + t1*dir;
+
+        return true;
+    }
+    //cout<<"RETURN FALSE";
+    return false;         // no intersection
+}
+
+bool intersectTriangle(vec3 v0, vec3 v1, vec3 v2, vec3 start, vec3 dir, 
+                       vec3& x0, float& t0)
+{
+    vec3 e1, e2, b, x;
+    e1 = v1 - v0;
+    e2 = v2 - v0;
+    b = start - v0;
+    mat3 A( -dir, e1, e2 );
+    x = glm::inverse( A ) * b; // x:t, y:u, z:v
+
+    // Add equallity so that it includes points on the edges of the triang.
+    if(x.x>=0 && x.y>=0 && x.z>=0 && (x.y+x.z)<=1)
+    {
+        x0 = v0 + x.y*e1 + x.z*e2;
+        t0 = x.x;
+        return true;
+    }
+    return false;
+}
+
+bool ClosestIntersection(const vec3 start, const vec3 dir,
+                         const vector<Triangle>& triangles,
                          Intersection& closestIntersection)
 {
     closestIntersection.distance = std::numeric_limits<float>::max();
+    closestIntersection.triangleIndex = -1;
+    closestIntersection.sphereIndex = -1;
+
     bool intersect = false;
-    vec3 v0, v1,v2, e1, e2, b, x;
+    float t0, t1; // distance
+    vec3 x0, x1;  // intersection points
 
     for(int t_i=0; t_i<triangles.size(); t_i++)
     {
+        // Backface culling
         if(!isVisible(triangles[t_i].normal, dir))
             continue;
 
-        v0 = triangles[t_i].v0;
-        v1 = triangles[t_i].v1;
-        v2 = triangles[t_i].v2;
-        e1 = v1 - v0;
-        e2 = v2 - v0;
-        b = start - v0;
-        mat3 A( -dir, e1, e2 );
-        x = glm::inverse( A ) * b; // x:t, y:u, z:v
-
-        // Add equallity so that it includes points on the edges of the triang.
-        if(x.x>=0 && x.y>=0 && x.z>=0 && (x.y+x.z)<=1 && 
-           x.x<closestIntersection.distance)
+        if(intersectTriangle(triangles[t_i].v0, triangles[t_i].v1, triangles[t_i].v2,
+                             start, dir, x0, t0) && t0<closestIntersection.distance)
         {   // valid intersection
             intersect = true;
-            closestIntersection.position = v0 + x.y*e1 + x.z*e2;
-            closestIntersection.distance = x.x;
+            closestIntersection.position = x0;
+            closestIntersection.distance = t0;
             closestIntersection.triangleIndex = t_i;
         }
     }
+
+    // Check intersection with spheres
+    for(int s_i=0; s_i<spheres.size(); s_i++)
+    {
+        if(intersectSphere(spheres[s_i], start, dir, x0, x1, t0, t1) &&
+           ((t0>0.001 && t0<closestIntersection.distance) || 
+            (t1>0.001 && t1<closestIntersection.distance) ))
+        {
+            intersect = true;
+            closestIntersection.position = t0>0? x0 : x1;
+            closestIntersection.distance = t0>0? t0 : t1;
+            closestIntersection.sphereIndex = s_i;
+        }
+    }
+
     return intersect;
 }
 
@@ -264,18 +433,27 @@ vec3 uniform_random_normal(const vec3& n)
 
 void trace_photon(Photon& p)
 {
-    Intersection i;
+    Intersection i, j;
+    vec3 x0, x1; float t0,t1;
    
-    if(!ClosestIntersection(p.getSource(), p.getNormal(), triangles, i))
-    {
-        return;
-    }
-
-    p.setDestination(i.position);
-
-    if(p.getBounces()!=0)
-        photons.push_back(p);
+    if(!ClosestIntersection(p.getSource(), p.getNormal(), triangles, i)) return;
     
+    if(i.sphereIndex>=0)
+    {
+        refractPhoton(spheres[i.sphereIndex], p, i, j);
+        // photons refracted by the sphere
+        p.setDestination(j.position);
+        photons.push_back(p);
+        std::swap(i,j);
+        // photons hitting on the sphere
+        p.setDestination(j.position);
+        photons.push_back(p);
+    }
+    else
+        p.setDestination(i.position);
+
+    //if(p.getBounces()!=0)
+   
     //DrawPhoton(p);
 
     // New photon
@@ -284,8 +462,8 @@ void trace_photon(Photon& p)
               p.getEnergy()*triangles[i.triangleIndex].color/(float) sqrt(p.getBounces()+1), // power
               p.getBounces()+1);                                          // increase bounces
 
-    if (random_num(0)<0.8)
-        trace_photon(p2);
+    //if (random_num(0)<0.8)
+    //    trace_photon(p2);
 }
 
 ivec2 VertexShader(vec3 p)
@@ -301,7 +479,7 @@ ivec2 VertexShader(vec3 p)
 void DrawPhoton(Photon p)
 {
     ivec2 p2 = VertexShader(p.getDestination());
-    PutPixelSDL(screen, p2.x, p2.y, p.getEnergy());
+    PutPixelSDL(screen, p2.x, p2.y, vec3(1,1,1));
 }
 
 void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
