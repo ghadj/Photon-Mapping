@@ -19,8 +19,8 @@ using glm::vec2;
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
 vector<Sphere> spheres;
@@ -35,8 +35,7 @@ float yaw; // angle of the camera around y axis
 // Light
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColor = 5.f * vec3(1, 1, 1);
-vec3 lightPower = 200.f * vec3(1, 1, 1);
-vec3 indirectLight = 0.1f*vec3( 1, 1, 1 );
+vec3 lightPower = 300.f * vec3(1, 1, 1);
 
 int k = 500; // nearest photons TODO
 float filter_const = 1;
@@ -70,30 +69,32 @@ bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
                      vec3& x0, vec3& x1,   // intersection points
                      float& t0, float& t1); // distance from origin
 ivec2 VertexShader(vec3 p);
+bool refractPhoton(Sphere s, vec3 photon_dir, 
+                   Intersection& i, // Intersection point with sphere
+                   Intersection& j); // Intersection point after refraction
 
-int main( int argc, char* argv[] )
+int main(int argc, char* argv[])
 {
+    int t2; float dt;
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     LoadTestModel(triangles, spheres);
-    cout<<"Spheres size: "<<spheres.size()<<'\n';
-    cout<<"Radius: "<<spheres[0].radius<<'\n';
     
     emitPhotons(nPhotons);
     photonmap.setPhotons(photons.data(), photons.size());
     photonmap.buildTree();
+    
+    t2 = SDL_GetTicks();
+    dt = float(t2-t);
+    t = t2;
+    cout << "Photonmap creation time: " << dt << " ms." << endl;
     cout<<"Photon-map size: "<<photons.size()<<'\n';
 
-    for(int i=0; i<photons.size(); i++)
-        DrawPhoton(photons[i]);
-    ivec2 x = VertexShader(spheres[0].center);
-                PutPixelSDL(screen, x[0], x[1], vec3(1,0,0));
-
-    //Draw();
+    Draw();
     
     // Compute frame time:
-    int t2 = SDL_GetTicks();
-    float dt = float(t2-t);
+    t2 = SDL_GetTicks();
+    dt = float(t2-t);
     t = t2;
     cout << "Render time: " << dt << " ms." << endl;
     Uint8* keystate = SDL_GetKeyState( 0 );
@@ -141,29 +142,36 @@ void Draw()
 		SDL_LockSurface(screen);
 
     SDL_FillRect(screen, 0, 0);
-    Intersection closestIntersection;
+    Intersection closestIntersection, intersection_refract;
+
 	for(int y=0; y<SCREEN_HEIGHT; ++y)
-	{
 		for(int x=0; x<SCREEN_WIDTH; ++x)
 		{
             vec3 dir(x-SCREEN_WIDTH/2, y-SCREEN_HEIGHT/2, focalLength);
-            if(ClosestIntersection(R*cameraPos, dir, triangles, closestIntersection))
+            if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection))
             {
-                PutPixelSDL(screen, x, y, getRadianceEstimate(closestIntersection));
+                if(closestIntersection.sphereIndex >= 0)
+                {
+                    refractPhoton(spheres[closestIntersection.sphereIndex],
+                                  glm::normalize(closestIntersection.position-cameraPos), 
+                                  closestIntersection, intersection_refract);
+                    PutPixelSDL(screen, x, y, getRadianceEstimate(intersection_refract));
+                }
+                else
+                    PutPixelSDL(screen, x, y, getRadianceEstimate(closestIntersection));
             }
 		}
-	}
 
-	if( SDL_MUSTLOCK(screen) )
+	if(SDL_MUSTLOCK(screen))
 		SDL_UnlockSurface(screen);
 
-	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+	SDL_UpdateRect(screen, 0, 0, 0, 0);
 }
 
 // Backface culling
 bool isVisible(vec3 n, vec3 s)
 {
-    return glm::dot(n, s)<=0.0;
+    return glm::dot(n, s) <= 0.0;
 }
 
 // Reference. Based on
@@ -172,7 +180,7 @@ bool isVisible(vec3 n, vec3 s)
 bool refract(const vec3& dir,            // direction of photon
              const vec3& surface_normal, // surface normal
              vec3& T,                    // refracted direction
-             const float& ior=1.5)       // index of refraction
+             const float& ior=1.9)       // index of refraction
 { 
     vec3 N = surface_normal; 
     float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(dir, N)); 
@@ -199,34 +207,35 @@ bool refract(const vec3& dir,            // direction of photon
     return true;
 } 
 
-bool refractPhoton(Sphere s, Photon p, 
+bool refractPhoton(Sphere s, vec3 photon_dir, 
                    Intersection& i, // Intersection point with sphere
                    Intersection& j) // Intersection point after refraction
 {
-    vec3 sphere_normal = i.position - s.center; // normal at intersection point
+    vec3 sphere_normal = glm::normalize(i.position - s.center); // normal at intersection point
     vec3 Ti, Tj; // refracted direction
-    printf("\n\nSphere position center: (%f, %f, %f)\n", s.center.x, s.center.y, s.center.z);
-    printf("Intersection 1: (%f %f %f)\n", i.position.x, i.position.y, i.position.z);
-    cout<<"Distance: "<<i.distance<<'\n';
+    //printf("\n\nSphere position center: (%f, %f, %f)\n", s.center.x, s.center.y, s.center.z);
+    //printf("Intersection 1: (%f %f %f)\n", i.position.x, i.position.y, i.position.z);
+    //cout<<"Distance: "<<i.distance<<'\n';
     
     // Refract from outside
-    if(!refract(p.getNormal(), sphere_normal, Ti)) return false;
-    printf("T1: (%f %f %f)\n", Ti.x, Ti.y, Ti.z);
+    if(!refract(photon_dir, sphere_normal, Ti)) return false;
+    //printf("T1: (%f %f %f)\n", Ti.x, Ti.y, Ti.z);
 
     // Find intersection from inside
     vec3 x0, x1;
     float t0, t1;
-    bool b = intersectSphere(s, i.position, Ti, x0, x1, t0, t1);
-    sphere_normal = x1 - s.center;
+    intersectSphere(s, i.position, Ti, x0, x1, t0, t1);
+    sphere_normal = glm::normalize(x1 - s.center);
     //if(b) cout<<"TRUE B\n"; else cout<<"FALSE\n";
-    printf("Intersection 2 x0: (%f %f %f)\n", x0.x, x0.y, x0.z);
-    printf("Intersection 2 x1: (%f %f %f)\n", x1.x, x1.y, x1.z);
+    //printf("Intersection 2 x0: (%f %f %f)\n", x0.x, x0.y, x0.z);
+    //printf("Intersection 2 x1: (%f %f %f)\n", x1.x, x1.y, x1.z);
+    //printf("t0 %f t1 %f\n", t0, t1);
 
     // Refract to ouside
     if(!refract(Ti, sphere_normal, Tj)) return false;
     // Find intersection ouside
     ClosestIntersection(x1, Tj, triangles, j);
-    printf("Intersection 3: (%f %f %f)\n", j.position.x, j.position.y, j.position.z);
+    //printf("Intersection 3: (%f %f %f)\n", j.position.x, j.position.y, j.position.z);
     return true;
 }
 
@@ -366,23 +375,19 @@ vec3 DirectLight(const Intersection& i)
     float r = glm::distance(lightPos, i.position); 
 
     // Direction from surface to the light source
-    // Reference: https://math.hws.edu/graphicsbook/c7/s2.html
     vec3 r_hat = glm::normalize(lightPos - i.position); 
 
     // Normal pointing out from the surface
     vec3 n_hat = triangles[i.triangleIndex].normal; 
     
-    // 5. Illumation (Figures 4 & 6)
-    //return (lightColor*max(glm::dot(r_hat, n_hat), 0.0f))/(4.0f*PI*r*r);
-
     // 5.1 Direct shadows (Figure 7 & 8)
     Intersection j;
     if(ClosestIntersection(lightPos, glm::normalize(i.position - lightPos), 
                            triangles, j))
     {
-       if(glm::distance(lightPos, j.position)<r &&
-          i.triangleIndex != j.triangleIndex) // ignore the case where i & j are 
-                                              // the same point
+        if(j.sphereIndex >= 0 ||
+           (glm::distance(lightPos, j.position)<r &&
+           i.triangleIndex != j.triangleIndex)) // ignore the case where i & j are the same point
            return vec3(0, 0, 0); // return black
     }
     return (lightColor*max(glm::dot(r_hat, n_hat), 0.0f))/(4.0f*PI*r*r);
@@ -438,32 +443,30 @@ void trace_photon(Photon& p)
    
     if(!ClosestIntersection(p.getSource(), p.getNormal(), triangles, i)) return;
     
-    if(i.sphereIndex>=0)
+    if(i.sphereIndex >= 0)
     {
-        refractPhoton(spheres[i.sphereIndex], p, i, j);
-        // photons refracted by the sphere
+        // j is the intersection after refraction
+        refractPhoton(spheres[i.sphereIndex], p.getNormal(), i, j);
+
         p.setDestination(j.position);
         photons.push_back(p);
         std::swap(i,j);
-        // photons hitting on the sphere
-        p.setDestination(j.position);
-        photons.push_back(p);
     }
     else
+    {
         p.setDestination(i.position);
-
-    //if(p.getBounces()!=0)
+        if(p.getBounces()!=0)
+            photons.push_back(p);
+    }
    
-    //DrawPhoton(p);
-
     // New photon
     Photon p2(uniform_random_normal(triangles[i.triangleIndex].normal),   // normal vector
               i.position,                                                 // position of source
               p.getEnergy()*triangles[i.triangleIndex].color/(float) sqrt(p.getBounces()+1), // power
               p.getBounces()+1);                                          // increase bounces
 
-    //if (random_num(0)<0.8)
-    //    trace_photon(p2);
+    if (random_num(0) < 0.8)
+        trace_photon(p2);
 }
 
 ivec2 VertexShader(vec3 p)
