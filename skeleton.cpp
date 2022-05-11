@@ -19,8 +19,8 @@ using glm::vec2;
 // GLOBAL VARIABLES
 
 const float PI = 3.14159265358979323846; // pi
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 vector<Triangle> triangles; // all the trianlges of the scene
 vector<Sphere> spheres;
@@ -34,10 +34,10 @@ float yaw; // angle of the camera around y axis
 
 // Light
 vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColor = 5.f * vec3(1, 1, 1);
-vec3 lightPower = 300.f * vec3(1, 1, 1);
+vec3 lightColor = 4.0f * vec3(1, 1, 0.95);
+vec3 lightPower = 400.f * vec3(1, 1, 1);
 
-int k = 500; // nearest photons TODO
+int k = 600; // nearest photons
 float filter_const = 1;
 
 // Intersection
@@ -72,6 +72,8 @@ ivec2 VertexShader(vec3 p);
 bool refractPhoton(Sphere s, vec3 photon_dir, 
                    Intersection& i, // Intersection point with sphere
                    Intersection& j); // Intersection point after refraction
+vec3 reflect(vec3 light_dir, vec3 surface_normal);
+float fresnel(vec3 light_dir, vec3 surface_normal, const float& ior=1.66);
 
 int main(int argc, char* argv[])
 {
@@ -142,7 +144,7 @@ void Draw()
 		SDL_LockSurface(screen);
 
     SDL_FillRect(screen, 0, 0);
-    Intersection closestIntersection, intersection_refract;
+    Intersection closestIntersection, intersection_refract, intersection_reflect;
 
 	for(int y=0; y<SCREEN_HEIGHT; ++y)
 		for(int x=0; x<SCREEN_WIDTH; ++x)
@@ -155,7 +157,18 @@ void Draw()
                     refractPhoton(spheres[closestIntersection.sphereIndex],
                                   glm::normalize(closestIntersection.position-cameraPos), 
                                   closestIntersection, intersection_refract);
-                    PutPixelSDL(screen, x, y, getRadianceEstimate(intersection_refract));
+                    
+                    float f = fresnel(glm::normalize(closestIntersection.position-cameraPos),
+                                      glm::normalize(closestIntersection.position - 
+                                                     spheres[closestIntersection.sphereIndex].center));
+
+                    vec3 dir_re = reflect(glm::normalize(closestIntersection.position-cameraPos),
+                                      glm::normalize(closestIntersection.position - 
+                                                     spheres[closestIntersection.sphereIndex].center));
+                    ClosestIntersection(closestIntersection.position, dir_re, triangles, intersection_reflect);
+
+                    PutPixelSDL(screen, x, y, (1-f)*getRadianceEstimate(intersection_refract)+
+                                            (f)*getRadianceEstimate(intersection_reflect));
                 }
                 else
                     PutPixelSDL(screen, x, y, getRadianceEstimate(closestIntersection));
@@ -177,13 +190,13 @@ bool isVisible(vec3 n, vec3 s)
 // Reference. Based on
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/
 // reflection-refraction-fresnel
-bool refract(const vec3& dir,            // direction of photon
+bool refract(const vec3& light_dir,      // direction of photon
              const vec3& surface_normal, // surface normal
              vec3& T,                    // refracted direction
-             const float& ior=1.9)       // index of refraction
+             const float& ior=1.66)      // index of refraction
 { 
     vec3 N = surface_normal; 
-    float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(dir, N)); 
+    float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(light_dir, N)); 
     float n1 = 1;
     float n2 = ior; 
     float n, c;
@@ -203,7 +216,7 @@ bool refract(const vec3& dir,            // direction of photon
 
     if(c<0) return false; 
 
-    T = n * dir + (n * cosi - sqrtf(c)) * N; 
+    T = n * light_dir + (n * cosi - sqrtf(c)) * N; 
     return true;
 } 
 
@@ -213,56 +226,39 @@ bool refractPhoton(Sphere s, vec3 photon_dir,
 {
     vec3 sphere_normal = glm::normalize(i.position - s.center); // normal at intersection point
     vec3 Ti, Tj; // refracted direction
-    //printf("\n\nSphere position center: (%f, %f, %f)\n", s.center.x, s.center.y, s.center.z);
-    //printf("Intersection 1: (%f %f %f)\n", i.position.x, i.position.y, i.position.z);
-    //cout<<"Distance: "<<i.distance<<'\n';
     
     // Refract from outside
     if(!refract(photon_dir, sphere_normal, Ti)) return false;
-    //printf("T1: (%f %f %f)\n", Ti.x, Ti.y, Ti.z);
 
     // Find intersection from inside
     vec3 x0, x1;
     float t0, t1;
     intersectSphere(s, i.position, Ti, x0, x1, t0, t1);
     sphere_normal = glm::normalize(x1 - s.center);
-    //if(b) cout<<"TRUE B\n"; else cout<<"FALSE\n";
-    //printf("Intersection 2 x0: (%f %f %f)\n", x0.x, x0.y, x0.z);
-    //printf("Intersection 2 x1: (%f %f %f)\n", x1.x, x1.y, x1.z);
-    //printf("t0 %f t1 %f\n", t0, t1);
 
     // Refract to ouside
     if(!refract(Ti, sphere_normal, Tj)) return false;
     // Find intersection ouside
     ClosestIntersection(x1, Tj, triangles, j);
-    //printf("Intersection 3: (%f %f %f)\n", j.position.x, j.position.y, j.position.z);
     return true;
 }
 
-// Reference. Based on
-// https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/
-// reflection-refraction-fresnel
-void fresnel(const vec3 &I, const vec3 &N, const float &ior, float &kr) 
-{ 
-    float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(I, N)); 
-    float etai = 1, etat = ior; 
-    if (cosi > 0) { std::swap(etai, etat); } 
-    
-    // Snell's law
-    float sint = etai / etat * sqrtf(std::max(0.f, 1 - cosi * cosi)); 
-    // Total internal reflection
-    if (sint >= 1) { 
-        kr = 1; 
-    } 
-    else { 
-        float cost = sqrtf(std::max(0.f, 1 - sint * sint)); 
-        cosi = fabsf(cosi); 
-        float Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost)); 
-        float Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost)); 
-        kr = (Rs * Rs + Rp * Rp) / 2; 
-    } 
-    // As a consequence of the conservation of energy, transmittance is given by:
-    // kt = 1 - kr;
+vec3 reflect(vec3 light_dir, vec3 surface_normal)
+{
+    return light_dir - 2.0f * surface_normal * glm::dot(surface_normal, light_dir);
+}
+
+// Reference.
+// https://developer.download.nvidia.com/SDK/9.5/Samples/DEMOS/Direct3D9/src/
+// HLSL_FresnelReflection/docs/FresnelReflection.pdf
+//
+// Schlick’s Fresnel approximation function
+float fresnel(vec3 light_dir, vec3 surface_normal, const float& ior)
+{   // light and normal are assumed to be normalized
+    float r0 = pow(1.0-ior, 2.0) / pow(1.0+ior, 2.0);  
+    float cosx = -glm::dot(surface_normal, light_dir);
+
+    return r0 + (1.0-r0) * pow(1.0 - cosx, 5.0);
 } 
 
 bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
@@ -272,8 +268,8 @@ bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
     vec3 center_trn = start- s.center; // translated center of sphere
     float A = glm::dot(dir, dir);   
     float B = 2.0 * glm::dot(dir, center_trn);   
-    float C = glm::dot(center_trn, center_trn) - s.radius*s.radius; 
-    float Delta = B*B - 4*A*C; 
+    float C = glm::dot(center_trn, center_trn) - pow(s.radius, 2.0); 
+    float Delta = pow(B, 2.0) - 4*A*C; 
 
     if(Delta == 0.0)      // there is only one solution
     {
@@ -289,7 +285,7 @@ bool intersectSphere(const Sphere& s, const vec3& start, const vec3& dir,
 
         if(t0<0 && t1<0) return false;
 
-        // Note: now there is the possibility one of t0/t1 to be negative.
+        // Note: now there is the possibility one of t0 or t1 to be negative.
         // In that case the origin of the ray is inside the sphere.
     
         // Swap so that t1 corresponds to the farthest intersection point
@@ -311,8 +307,8 @@ bool intersectTriangle(vec3 v0, vec3 v1, vec3 v2, vec3 start, vec3 dir,
     e1 = v1 - v0;
     e2 = v2 - v0;
     b = start - v0;
-    mat3 A( -dir, e1, e2 );
-    x = glm::inverse( A ) * b; // x:t, y:u, z:v
+    mat3 A(-dir, e1, e2);
+    x = glm::inverse(A) * b; // x:t, y:u, z:v
 
     // Add equallity so that it includes points on the edges of the triang.
     if(x.x>=0 && x.y>=0 && x.z>=0 && (x.y+x.z)<=1)
@@ -390,7 +386,7 @@ vec3 DirectLight(const Intersection& i)
            i.triangleIndex != j.triangleIndex)) // ignore the case where i & j are the same point
            return vec3(0, 0, 0); // return black
     }
-    return (lightColor*max(glm::dot(r_hat, n_hat), 0.0f))/(4.0f*PI*r*r);
+    return (lightColor * max(glm::dot(r_hat, n_hat), 0.0f)) / (4.0f * PI * r*r);
 }
 
 float random_num(float min, float max)

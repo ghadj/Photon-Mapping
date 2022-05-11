@@ -16,7 +16,7 @@ public:
 	glm::vec3 normal;
 	glm::vec3 color;
 
-	Triangle( glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 color )
+	Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 color)
 		: v0(v0), v1(v1), v2(v2), color(color)
 	{
 		ComputeNormal();
@@ -26,7 +26,7 @@ public:
 	{
 		glm::vec3 e1 = v1-v0;
 		glm::vec3 e2 = v2-v0;
-		normal = glm::normalize( glm::cross( e2, e1 ) );
+		normal = glm::normalize(glm::cross(e2, e1));
 	}
 };
 
@@ -49,13 +49,13 @@ void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& sphere
 	using glm::vec3;
 
 	// Defines colors:
-	vec3 red(    0.75f, 0.25f, 0.25f );
+	vec3 red(    0.95f, 0.35f, 0.35f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
 	vec3 green(  0.15f, 0.75f, 0.15f );
 	vec3 cyan(   0.15f, 0.75f, 0.75f );
-	vec3 blue(   0.25f, 0.25f, 0.75f );
+	vec3 blue(   0.35f, 0.35f, 0.95f );
 	vec3 purple( 0.75f, 0.15f, 0.75f );
-	vec3 white(  0.75f, 0.75f, 0.75f );
+	vec3 white(  0.95f, 0.95f, 0.95f );
 
 	triangles.clear();
 	triangles.reserve( 5*2*3 );
@@ -76,31 +76,31 @@ void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& sphere
 	vec3 H(0,L,L);
 
 	// Floor:
-	triangles.push_back( Triangle( C, B, A, white ) );
-	triangles.push_back( Triangle( C, D, B, white ) );
+	triangles.push_back(Triangle(C, B, A, white));
+	triangles.push_back(Triangle(C, D, B, white));
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, red ) );
-	triangles.push_back( Triangle( C, E, G, red ) );
+	triangles.push_back(Triangle(A, E, C, red));
+	triangles.push_back(Triangle(C, E, G, red));
 
 	// Right wall
-	triangles.push_back( Triangle( F, B, D, blue ) );
-	triangles.push_back( Triangle( H, F, D, blue ) );
+	triangles.push_back(Triangle(F, B, D, blue));
+	triangles.push_back(Triangle(H, F, D, blue));
 
 	// Ceiling
-	triangles.push_back( Triangle( E, F, G, white ) );
-	triangles.push_back( Triangle( F, H, G, white ) );
+	triangles.push_back(Triangle(E, F, G, white));
+	triangles.push_back(Triangle(F, H, G, white));
 
 	// Back wall
-	triangles.push_back( Triangle( G, D, C, white ) );
-	triangles.push_back( Triangle( G, H, D, white ) );
+	triangles.push_back(Triangle(G, D, C, white));
+	triangles.push_back(Triangle(G, H, D, white));
     
 	// Front wall
-	triangles.push_back( Triangle( F, E, B, white ) );
-	triangles.push_back( Triangle( B, E, A, white ) );
+	triangles.push_back(Triangle(F, E, B, white));
+	triangles.push_back(Triangle(B, E, A, white));
 
 	// ---------------------------------------------------------------------------
-    spheres.push_back(Sphere(vec3(100, 70, 150), 70.0));
+    spheres.push_back(Sphere(vec3(120, 100, 150), 100.0));
      
 	// ---------------------------------------------------------------------------
 	/*/ Short block
@@ -116,24 +116,24 @@ void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& sphere
 	H = vec3( 82,165,225);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,white) );
-	triangles.push_back( Triangle(E,F,B,white) );
+	triangles.push_back(Triangle(E, B, A, white));
+	triangles.push_back(Triangle(E, F, B, white));
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,white) );
-	triangles.push_back( Triangle(F,H,D,white) );
+	triangles.push_back(Triangle(F, D, B, white));
+	triangles.push_back(Triangle(F, H, D, white));
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,white) );
-	triangles.push_back( Triangle(H,G,C,white) );
+	triangles.push_back(Triangle(H, C, D, white));
+	triangles.push_back(Triangle(H, G, C, white));
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,white) );
-	triangles.push_back( Triangle(E,A,C,white) );
+	triangles.push_back(Triangle(G, E, C, white));
+	triangles.push_back(Triangle(E, A, C, white));
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,white) );
-	triangles.push_back( Triangle(G,H,F,white) );
+	triangles.push_back(Triangle(G, F, E, white));
+	triangles.push_back(Triangle(G, H, F, white));
     */
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -149,30 +149,30 @@ void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& sphere
 	H = vec3(314,330,456);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,white) );
-	triangles.push_back( Triangle(E,F,B,white) );
+	triangles.push_back(Triangle(E,B,A,white));
+	triangles.push_back(Triangle(E,F,B,white));
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,white) );
-	triangles.push_back( Triangle(F,H,D,white) );
+	triangles.push_back(Triangle(F,D,B,white));
+	triangles.push_back(Triangle(F,H,D,white));
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,white) );
-	triangles.push_back( Triangle(H,G,C,white) );
+	triangles.push_back(Triangle(H,C,D,white));
+	triangles.push_back(Triangle(H,G,C,white));
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,white) );
-	triangles.push_back( Triangle(E,A,C,white) );
+	triangles.push_back(Triangle(G,E,C,white));
+	triangles.push_back(Triangle(E,A,C,white));
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,white) );
-	triangles.push_back( Triangle(G,H,F,white) );
+	triangles.push_back(Triangle(G,F,E,white));
+	triangles.push_back(Triangle(G,H,F,white));
 
 
 	// ----------------------------------------------
 	// Scale to the volume [-1,1]^3
 
-	for( size_t i=0; i<triangles.size(); ++i )
+	for(size_t i=0; i<triangles.size(); ++i)
 	{
 		triangles[i].v0 *= 2/L;
 		triangles[i].v1 *= 2/L;
@@ -193,7 +193,7 @@ void LoadTestModel(std::vector<Triangle>& triangles, std::vector<Sphere>& sphere
 		triangles[i].ComputeNormal();
 	}
 
-	for( size_t i=0; i<spheres.size(); ++i )
+	for(size_t i=0; i<spheres.size(); ++i)
 	{
         spheres[i].radius *= 2/L;
         spheres[i].center *= 2/L;
