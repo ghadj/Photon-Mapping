@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <queue>
-#include "photon.h"
+#include <numeric>
+
+#include "photon_tracer.h"
 
 using namespace std;
 using glm::vec3;
