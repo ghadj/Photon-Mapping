@@ -1,3 +1,9 @@
+/**
+ * @file kdtree.h
+ * @author Georgios Hadjiantonis
+ * @brief Definition of a kd-tree.
+ * 
+ */
 #ifndef KDTREE_H
 #define KDTREE_H
 
@@ -12,12 +18,20 @@
 using namespace std;
 using glm::vec3;
 
+/**
+ * @brief Instance of neighbor photon returned by the search.
+ * 
+ */
 struct NeighborPhoton
 {
-    int index;  // index of photon
+    int index;  // index of the corresponding photon in the given array.
     float dist; // distance from query point
 };
 
+/**
+ * @brief Definition of a kd-tree.
+ * 
+ */
 class KdTree
 {
 private:
@@ -37,7 +51,13 @@ private:
 
     using KNNQueue = priority_queue<pair<float, int>>;
 
-    // Returns the square distance between points a and b
+    /**
+     * @brief Returns the square distance between points a and b.
+     * 
+     * @param a      Coordinates of point a.
+     * @param b      Coordinates of point b.
+     * @return float Square distance between a and b.
+     */
     static float GetSqrDist(const vec3 a, const vec3 b)
     {
         float sqr_dist = 0.0;
@@ -46,6 +66,13 @@ private:
         return sqr_dist;
     }
 
+    /**
+     * @brief Recursively builds each node of the tree.
+     * 
+     * @param indices   Indices of photons in the array.
+     * @param n_photons Number of photons left.
+     * @param depth     Current depth in the tree.
+     */
     void BuildNode(int *indices, int n_photons, int depth)
     {
         if (n_photons <= 0)
@@ -99,6 +126,15 @@ private:
         }
     }
 
+    /**
+     * @brief Given the query point returns the k nearest photons in a priority queue.
+     *
+     * @param node_idx    Index of current node. 
+     * @param query_point Point of interest.
+     * @param k           Number of photons to be returned.
+     * @param queue       Priority queue based on the distance of photons from
+     *                    questy point.
+     */
     void SearchKNearestNode(int node_idx, const vec3 &query_point, int k,
                             KNNQueue &queue) const
     {
@@ -132,7 +168,7 @@ private:
         }
 
         // At leaf node, if size of queue is smaller than k, or queue's largest
-        // minimum distance overlaps sibblings region, then search siblings
+        // minimum distance overlaps siblings region, then search siblings
         const float dist_to_siblings = median.destination[node.axis] -
                                        query_point[node.axis];
 
@@ -152,12 +188,22 @@ private:
 public:
     KdTree() {}
 
+    /**
+     * @brief Sets pointer to array of photons.
+     * 
+     * @param photons     Pointer to array of photons.
+     * @param num_photons Total number of photons.
+     */
     void SetPhotons(const Photon *photons, int num_photons)
     {
         this->photons = photons;
         this->num_photons = num_photons;
     }
 
+    /**
+     * @brief Given the array of photons, recursively builds the kd-tree.
+     * 
+     */
     void BuildTree()
     {
         // Setup indices of photons
@@ -168,6 +214,15 @@ public:
         BuildNode(indices.data(), num_photons, 0);
     }
 
+    /**
+     * @brief Given the query point returns the k nearest photons and the
+     *        maximum squared distance from the farthest photon in the list.
+     * 
+     * @param query_point             Query point.
+     * @param k                       Number of photons to be returned.
+     * @param max_dist2               Max squared distance of the k-th photon.
+     * @return vector<NeighborPhoton> Vector of the k nearest photons.
+     */
     vector<NeighborPhoton> SearchKNearest(const vec3 &query_point, int k,
                                           float &max_dist2) const
     {

@@ -1,3 +1,9 @@
+/**
+ * @file utils.h
+ * @author Georgios Hadjiantonis
+ * @brief Utility functions.
+ *
+ */
 #ifndef UTILS_H
 #define UTILS_H
 
@@ -15,21 +21,43 @@ using glm::vec3;
 
 const float PI = 3.14159265358979323846;
 
-// Intersection
+/**
+ * @brief Intersection instance.
+ *
+ */
 struct Intersection
 {
-    vec3 position;
-    float distance;
-    int sphere_index;
-    int triangle_index;
+    vec3 position;      // coordinates of the intersection
+    float distance;     // distance from the origin of the photon/ray
+    int sphere_index;   // index of the intersected sphere
+    int triangle_index; // index of the intersected triangle
 };
 
-// Backface culling
-bool IsVisible(vec3 n, vec3 s)
+/**
+ * @brief Backface culling.
+ *
+ * @param v1     Normal vector of the surface.
+ * @param v2     Direction vector.
+ * @return true  The surface is visible, i.e., faces the direction vector.
+ * @return false The surface is not visible.
+ */
+bool IsVisible(vec3 v1, vec3 v2)
 {
-    return glm::dot(n, s) <= 0.0;
+    return glm::dot(v1, v2) <= 0.0;
 }
 
+/**
+ * @brief Given an origin point and a direction, returns the closest point of
+ *        intersection considering all the triangles and spheres of the scene.
+ *
+ * @param start        Origin of the ray.
+ * @param dir          Direction vector of the ray.
+ * @param triangles    Vector of all the triangles to be considered.
+ * @param spheres      Vector of all the spheres to be considered.
+ * @param intersection Closest intersection information.
+ * @return true        If an intersection is found.
+ * @return false       If no intersection is found.
+ */
 bool ClosestIntersection(const vec3 start, const vec3 dir,
                          const vector<Triangle> &triangles,
                          const vector<Sphere> &spheres,
@@ -50,6 +78,7 @@ bool ClosestIntersection(const vec3 start, const vec3 dir,
         {
             continue;
         }
+
         if (triangles[t_i].Intersect(start, dir, x0, t0) &&
             t0 < intersection.distance)
         { // valid intersection
@@ -76,6 +105,13 @@ bool ClosestIntersection(const vec3 start, const vec3 dir,
     return intersects;
 }
 
+/**
+ * @brief Fills the given vector by interpolating the two given points.
+ *
+ * @param a      Start point.
+ * @param b      End point.
+ * @param result Vector to be filled with values [a, b].
+ */
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2> &result)
 {
     int N = result.size();
@@ -89,12 +125,25 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2> &result)
     }
 }
 
+/**
+ * @brief Returns a random number given the min/max bounds.
+ *
+ * @param min    Lower bound.
+ * @param max    Upper bound.
+ * @return float Random number.
+ */
 float GetRandomNum(float min = -1.0, float max = 1.0)
 {
     float r = (float)rand() / (float)RAND_MAX;
     return min + r * (max - min);
 }
 
+/**
+ * @brief Returns a random direction given the normal vector of a surface. 
+ *
+ * @param n     Normal vector of a surface.
+ * @return vec3 Random direction.
+ */
 vec3 GetRandomDirection(const vec3 &n)
 {
     float z = sqrt(GetRandomNum(0));
@@ -103,7 +152,7 @@ vec3 GetRandomDirection(const vec3 &n)
     float x = r * cos(phi);
     float y = r * sin(phi);
 
-    // local orthogonal coordinate system around n
+    // Local orthogonal coordinate system around n
     vec3 w, u, v;
     w = n;
     u = glm::normalize(glm::cross(abs(w.x) > .1 ? vec3(0, 1, 0) : vec3(1, 0, 0), w));

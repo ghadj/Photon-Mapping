@@ -1,3 +1,9 @@
+/**
+ * @file shapes.h
+ * @author Georgios Hadjiantonis
+ * @brief Definitions of surface/object classes used in the scene.
+ *
+ */
 #ifndef SHAPES_H
 #define SHAPES_H
 
@@ -6,7 +12,10 @@
 using glm::mat3;
 using glm::vec3;
 
-// Used to describe a triangular surface:
+/**
+ * @brief Class of a triangular surface.
+ *
+ */
 class Triangle
 {
 public:
@@ -22,6 +31,10 @@ public:
         ComputeNormal();
     }
 
+    /**
+     * @brief Computes the normal vector of the triangle.
+     *
+     */
     void ComputeNormal()
     {
         vec3 e1 = v1 - v0;
@@ -29,6 +42,17 @@ public:
         normal = glm::normalize(glm::cross(e2, e1));
     }
 
+    /**
+     * @brief Given an origin point and a direction, checks if the ray
+     *        intersects with the triangle.
+     *
+     * @param start  Origin of the ray.
+     * @param dir    Direction vector of the ray.
+     * @param x0     Intersection point.
+     * @param t0     Distance from origin to intersection point.
+     * @return true  If the ray intersects with the triangle.
+     * @return false If the ray does not intersect with the triangle.
+     */
     bool Intersect(const vec3 start, const vec3 dir, vec3 &x0, float &t0) const
     {
         vec3 e1, e2, b, x;
@@ -38,7 +62,7 @@ public:
         mat3 A(-dir, e1, e2);
         x = glm::inverse(A) * b; // x:t, y:u, z:v
 
-        // Add equallity so that it includes points on the edges of the triang.
+        // Add equallity so that it includes points on the edges of the triangle
         if (x.x >= 0 && x.y >= 0 && x.z >= 0 && (x.y + x.z) <= 1)
         {
             x0 = this->v0 + x.y * e1 + x.z * e2;
@@ -49,6 +73,10 @@ public:
     }
 };
 
+/**
+ * @brief Class of a sphere object.
+ *
+ */
 class Sphere
 {
 public:
@@ -58,6 +86,23 @@ public:
     Sphere(vec3 center, float radius)
         : center(center), radius(radius) {}
 
+    /**
+     * @brief Given an origin point and a direction, checks if the ray
+     *        intersects with the sphere.
+     *
+     * Note that in the case of two intersection points, and the one is behind
+     * the origin of the ray, in regards to its direction, the intersection
+     * point will correspond to parameters x0 and t0.
+     *
+     * @param start  Origin of the ray.
+     * @param dir    Direction vector of the ray.
+     * @param x0     Intersection point.
+     * @param x1     Intersection point
+     * @param t0     Distance from origin to intersection point x0.
+     * @param t1     Distance from origin to intersection point x1.
+     * @return true  If the ray intersects with the triangle.
+     * @return false If the ray does not intersect with the triangle.
+     */
     bool Intersect(const vec3 &start, const vec3 &dir,
                    vec3 &x0, vec3 &x1,         // intersection points
                    float &t0, float &t1) const // distance from origin

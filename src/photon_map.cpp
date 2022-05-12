@@ -1,13 +1,16 @@
+/**
+ * @file photon_map.cpp
+ * @author Georgios Hadjiantonis
+ * @brief Photon-mapping and ray tracing.
+ *
+ */
+#include "photon_map.h"
+
 #include <iostream>
 
 #include <glm/glm.hpp>
-#include <SDL.h>
-#include "libs/SDLauxiliary.h"
 
-#include "photon_tracer.h"
 #include "shapes.h"
-#include "kdtree.h"
-#include "utils.h"
 #include "test_model.h"
 
 using namespace std;
@@ -16,44 +19,6 @@ using glm::ivec2;
 using glm::mat3;
 using glm::vec2;
 using glm::vec3;
-
-// Screen Dimensions
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
-
-// Camera parameters
-const float FOCAL_LENGTH = SCREEN_HEIGHT;
-const vec3 CAMERA_POS(0, 0, -3); // Position of the camera
-
-// Light parameters
-const vec3 LIGHT_POS(0, -0.5, -0.4);
-const vec3 LIGHT_COLOR = 5.0f * vec3(1, 1, 0.95);
-const vec3 LIGHT_POWER = 50.f * vec3(1, 1, 1);
-
-// Photonmap parameters
-const int K_NEAREST = 500;           // Number of nearest photons
-const float CONE_FILTER_CONST = 1.2; // Cone filter constant
-const int NUM_PHOTONS = 5000;       // Total number of photons from light source
-
-// Global variables
-vector<Photon> photons;
-KdTree photonmap;
-SDL_Surface *screen;
-vector<Triangle> triangles; // All the trianlges of the scene
-vector<Sphere> spheres;     // All the spheres of the scene
-int t;                      // Time
-
-// Functions
-vec3 DirectLight(const Intersection &);
-void RayTrace();
-void EmitPhotons(int num_photons);
-void TracePhoton(Photon &p);
-void DrawPhoton(Photon p);
-void DrawPhotonPath(Photon p);
-ivec2 VertexShader(vec3 p);
-vec3 GetRadianceTriangle(const Intersection &i);
-vec3 GetRadianceSphere(const Intersection &i, Intersection &intersection_refract, 
-                       Intersection &intersection_reflect);
 
 int main(int argc, char *argv[])
 {
@@ -94,7 +59,6 @@ int main(int argc, char *argv[])
 
 vec3 GetRadianceTriangle(const Intersection &i)
 {
-    // Jensen eq. (11)
     vec3 color = vec3(0, 0, 0);
     vec3 delta_phi;
     float wpc;         // weight
@@ -105,14 +69,15 @@ vec3 GetRadianceTriangle(const Intersection &i)
     vector<NeighborPhoton> neighbor_photons = photonmap.SearchKNearest(i.position, K_NEAREST, r_sqr);
     for (int p = 0; p < neighbor_photons.size(); p++)
     {
-        // Cone-filter [Jensen96c]
+        // Cone-filter
         dp = neighbor_photons[p].dist;
         wpc = 1 - dp / (CONE_FILTER_CONST * sqrt(r_sqr));
 
         // Photon power
         delta_phi = max(glm::dot(-photons[neighbor_photons[p].index].direction,
                                  triangles[i.triangle_index].normal),
-                        0.0f) * photons[neighbor_photons[p].index].energy;
+                        0.0f) *
+                    photons[neighbor_photons[p].index].energy;
         color += wpc * delta_phi;
     }
     color /= (1 - 2 / (3 * CONE_FILTER_CONST) * PI * r_sqr);
@@ -123,10 +88,10 @@ vec3 GetRadianceTriangle(const Intersection &i)
     return color;
 }
 
-vec3 GetRadianceSphere(const Intersection &i, 
-                       Intersection &intersection_refract, 
-                       Intersection &intersection_reflect)
+vec3 GetRadianceSphere(const Intersection &i)
 {
+    Intersection intersection_refract, intersection_reflect;
+
     Refract(spheres[i.sphere_index], glm::normalize(i.position - CAMERA_POS),
             triangles, spheres, i, intersection_refract);
 
@@ -139,7 +104,7 @@ vec3 GetRadianceSphere(const Intersection &i,
     ClosestIntersection(i.position, dir_reflect, triangles, spheres, intersection_reflect);
 
     return (1 - c) * GetRadianceTriangle(intersection_refract) +
-           (c) * GetRadianceTriangle(intersection_reflect);
+           (c)*GetRadianceTriangle(intersection_reflect);
 }
 
 void RayTrace()
@@ -149,7 +114,6 @@ void RayTrace()
 
     SDL_FillRect(screen, 0, 0);
     Intersection closest_intersection;
-    Intersection intersection_refract, intersection_reflect;
 
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
@@ -161,11 +125,12 @@ void RayTrace()
 
             if (closest_intersection.sphere_index >= 0)
             {
-                PutPixelSDL(screen, x, y, GetRadianceSphere(closest_intersection, 
-                                            intersection_refract, intersection_reflect));
+                PutPixelSDL(screen, x, y, GetRadianceSphere(closest_intersection));
             }
             else
+            {
                 PutPixelSDL(screen, x, y, GetRadianceTriangle(closest_intersection));
+            }
         }
 
     if (SDL_MUSTLOCK(screen))
@@ -205,7 +170,7 @@ void EmitPhotons(int num_photons)
     for (int i = 0; i < num_photons; i++)
     {
         do
-        {   // Use rejection sampling to find photon direction
+        { // Use rejection sampling to find photon direction
             x = GetRandomNum();
             y = GetRandomNum();
             z = GetRandomNum();
