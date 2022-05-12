@@ -2,9 +2,10 @@
 #define KDTREE_H
 
 #include <algorithm>
-#include <glm/glm.hpp>
 #include <queue>
 #include <numeric>
+
+#include <glm/glm.hpp>
 
 #include "photon_tracer.h"
 
@@ -17,174 +18,174 @@ struct NeighborPhoton
     float dist; // distance from query point
 };
 
-class KdTree 
+class KdTree
 {
 private:
-    struct Node 
+    struct Node
     {
-        int axis;           // separation axis(x=0, y=1, z=2)
-        int idx;            // index of median point
-        int leftChildIdx;   // index of left child
-        int rightChildIdx;  // index of right child
+        int axis;            // separation axis(x=0, y=1, z=2)
+        int idx;             // index of median point
+        int left_child_idx;  // index of left child
+        int right_child_idx; // index of right child
 
-        Node() : axis(-1), idx(-1), leftChildIdx(-1), rightChildIdx(-1) {}
+        Node() : axis(-1), idx(-1), left_child_idx(-1), right_child_idx(-1) {}
     };
 
-    vector<Node> nodes;     // array of tree nodes
-    int nPhotons;           // number of photons
-    const Photon* photons;  // pointer to array of photons
+    vector<Node> nodes;    // array of tree nodes
+    int num_photons;       // number of photons
+    const Photon *photons; // pointer to array of photons
 
     using KNNQueue = priority_queue<pair<float, int>>;
 
     // Returns the square distance between points a and b
-    static float getSqrDist(const vec3 a, const vec3 b)
+    static float GetSqrDist(const vec3 a, const vec3 b)
     {
         float sqr_dist = 0.0;
-        for(int i=0; i<3; i++)
+        for (int i = 0; i < 3; i++)
             sqr_dist += (a[i] - b[i]) * (a[i] - b[i]);
         return sqr_dist;
     }
 
-    void buildNode(int* indices, int n_photons, int depth) 
+    void BuildNode(int *indices, int n_photons, int depth)
     {
-        if (n_photons <= 0) return;
+        if (n_photons <= 0)
+            return;
 
-        // choose separation axis
+        // Choose separation axis
         const int axis = depth % 3;
 
-        // sort indices by coordination in the separation axis.
-        std::sort(indices, indices + n_photons, [&](const int idx1, const int idx2) {
-          return photons[idx1].getDestination()[axis] < photons[idx2].getDestination()[axis];
-        });
+        // Sort indices by coordination in the separation axis.
+        std::sort(indices, indices + n_photons, [&](const int idx1, const int idx2)
+                  { return photons[idx1].destination[axis] < photons[idx2].destination[axis]; });
 
-        // index of middle element of indices
+        // Index of middle element of indices
         const int mid = (n_photons - 1) / 2;
 
-        // add node to node array, remember index of current node(parent node)
-        const int parentIdx = nodes.size();
+        // Add node to node array, remember index of current node(parent node)
+        const int parent_idx = nodes.size();
         Node node;
         node.axis = axis;
         node.idx = indices[mid];
         nodes.push_back(node);
 
-        // add left children to node array
-        const int leftChildIdx = nodes.size();
-        buildNode(indices, mid, depth + 1);
+        // Add left children to node array
+        const int left_child_idx = nodes.size();
+        BuildNode(indices, mid, depth + 1);
 
-        // set index of left child on parent node
-        // if size of nodes doesn't change, it means there is no left children
-        if (leftChildIdx == nodes.size()) 
+        // Set index of left child on parent node
+        // If size of nodes doesn't change, it means there is no left children
+        if (left_child_idx == nodes.size())
         {
-            nodes[parentIdx].leftChildIdx = -1;
-        } 
-        else 
+            nodes[parent_idx].left_child_idx = -1;
+        }
+        else
         {
-            nodes[parentIdx].leftChildIdx = leftChildIdx;
+            nodes[parent_idx].left_child_idx = left_child_idx;
         }
 
-        // add right children to node array
-        const int rightChildIdx = nodes.size();
-        buildNode(indices + mid + 1, n_photons - mid - 1, depth + 1);
+        // Add right children to node array
+        const int right_child_idx = nodes.size();
+        BuildNode(indices + mid + 1, n_photons - mid - 1, depth + 1);
 
-        // set index of right child on parent node
-        // if size of nodes doesn't change, it means there is no right children
-        if (rightChildIdx == nodes.size()) 
+        // Set index of right child on parent node
+        // If size of nodes doesn't change, it means there is no right children
+        if (right_child_idx == nodes.size())
         {
-            nodes[parentIdx].rightChildIdx = -1;
-        } 
-        else 
+            nodes[parent_idx].right_child_idx = -1;
+        }
+        else
         {
-            nodes[parentIdx].rightChildIdx = rightChildIdx;
+            nodes[parent_idx].right_child_idx = right_child_idx;
         }
     }
 
-    void searchKNearestNode(int nodeIdx, const vec3& queryPoint, int k,
-                                    KNNQueue& queue) const 
+    void SearchKNearestNode(int node_idx, const vec3 &query_point, int k,
+                            KNNQueue &queue) const
     {
-        if (nodeIdx == -1 || nodeIdx >= nodes.size()) return;
+        if (node_idx == -1 || node_idx >= nodes.size())
+            return;
 
-        const Node& node = nodes[nodeIdx];
+        const Node &node = nodes[node_idx];
 
-        // median point
-        const Photon& median = photons[node.idx];
+        // Median point
+        const Photon &median = photons[node.idx];
 
-        // push to queue
-        queue.emplace(getSqrDist(queryPoint, median.getDestination()), node.idx);
+        // Push to queue
+        queue.emplace(GetSqrDist(query_point, median.destination), node.idx);
 
-        // if size of queue is larger than k, pop queue
-        if (queue.size() > k) 
+        // If size of queue is larger than k, pop queue
+        if (queue.size() > k)
         {
             queue.pop();
         }
 
-        // if query point is lower than median, search left child
+        // If query point is lower than median, search left child
         // else, search right child
-        const bool isLower = queryPoint[node.axis] < median.getDestination()[node.axis];
-        if (isLower) 
+        const bool is_lower = query_point[node.axis] < median.destination[node.axis];
+        if (is_lower)
         {
-            searchKNearestNode(node.leftChildIdx, queryPoint, k, queue);
-        } 
-        else 
+            SearchKNearestNode(node.left_child_idx, query_point, k, queue);
+        }
+        else
         {
-            searchKNearestNode(node.rightChildIdx, queryPoint, k, queue);
+            SearchKNearestNode(node.right_child_idx, query_point, k, queue);
         }
 
-        // at leaf node, if size of queue is smaller than k, or queue's largest
+        // At leaf node, if size of queue is smaller than k, or queue's largest
         // minimum distance overlaps sibblings region, then search siblings
-        const float dist_to_siblings = median.getDestination()[node.axis] - 
-                                       queryPoint[node.axis];
+        const float dist_to_siblings = median.destination[node.axis] -
+                                       query_point[node.axis];
 
-        if (queue.top().first > dist_to_siblings * dist_to_siblings) 
+        if (queue.top().first > dist_to_siblings * dist_to_siblings)
         {
-            if (isLower) 
+            if (is_lower)
             {
-                searchKNearestNode(node.rightChildIdx, queryPoint, k, queue);
-            } 
-            else 
+                SearchKNearestNode(node.right_child_idx, query_point, k, queue);
+            }
+            else
             {
-                searchKNearestNode(node.leftChildIdx, queryPoint, k, queue);
+                SearchKNearestNode(node.left_child_idx, query_point, k, queue);
             }
         }
     }
 
 public:
-    KdTree(){}
+    KdTree() {}
 
-    void setPhotons(const Photon* photons, int nPhotons) 
+    void SetPhotons(const Photon *photons, int num_photons)
     {
         this->photons = photons;
-        this->nPhotons = nPhotons;
+        this->num_photons = num_photons;
     }
 
-    void buildTree() 
+    void BuildTree()
     {
-        // setup indices of photons
-        vector<int> indices(nPhotons);
+        // Setup indices of photons
+        vector<int> indices(num_photons);
         iota(indices.begin(), indices.end(), 0);
 
-        // build tree recursively
-        buildNode(indices.data(), nPhotons, 0);
+        // Build tree recursively
+        BuildNode(indices.data(), num_photons, 0);
     }
 
-    vector<NeighborPhoton> searchKNearest(const vec3& queryPoint, int k, 
-                                          float& maxDist2) const 
+    vector<NeighborPhoton> SearchKNearest(const vec3 &query_point, int k,
+                                          float &max_dist2) const
     {
         KNNQueue queue;
-        searchKNearestNode(0, queryPoint, k, queue);
+        SearchKNearestNode(0, query_point, k, queue);
 
         vector<NeighborPhoton> ret(queue.size());
-        maxDist2 = 0;
-        for (int i = 0; i < ret.size(); ++i) 
+        max_dist2 = 0;
+        for (int i = 0; i < ret.size(); ++i)
         {
-            const auto& p = queue.top();
+            const auto &p = queue.top();
             ret[i].index = p.second;
             ret[i].dist = sqrt(p.first);
-            maxDist2 = max(maxDist2, p.first);
+            max_dist2 = max(max_dist2, p.first);
             queue.pop();
         }
         return ret;
     }
-
 };
 
 #endif
