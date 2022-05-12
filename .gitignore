@@ -38,5 +38,6 @@ Makefile
 Photon_Mapping
 cmake_install.cmake
 
-# Vim swap files
+# Vim files
 *.swp
+*.vim
