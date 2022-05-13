@@ -1,24 +1,5 @@
 ## The Photon-Mapping Algorithm
 
-Purpose of this project is the implementation of the Photon-Mapping Algorithm on
-a CPU renderer and test on a variation of the Cornell Box scene.
-
-### Table of Contents
-
-1. [Implementation](#1-implementation)
-
-    1.1 [Photon Tracing](#11-photon-tracing)
-
-    1.1.1 [The balanced kd-tree data structure](#the-balanced-kd-tree-data-structure)
-
-    1.2 [Rendering Pass](#12-rendering-pass)
-
-2. [Evaluation](#evaluation)
-
-3. [Discussion & Conclusion](#discussion-&-conclusion)
-
-### 1. Implementation
-
 The Photon-Maps is a global illumination algorithm and consists of two steps.
 
 1. Building the photon map: emitting photons from the light sources into the
@@ -27,7 +8,48 @@ The Photon-Maps is a global illumination algorithm and consists of two steps.
 2. The rendering pass: using the created photon map to extract information about
    incoming flux and reflected radiance at any point in the scene.
 
-#### 1.1 Photon Tracing
+Purpose of this project is the implementation of the Photon-Mapping Algorithm on
+a CPU renderer and test on a variation of the Cornell Box scene.
+
+(picture of final rendering)
+
+
+### Table of Contents
+
+1. [The test environment](#11-the-test-environment)
+
+2. [Photon tracing](#2-photon-tracing)
+        
+    2.1 [Light source & Photon Emission](#21-light-source-&-photon-emission)
+
+    2.2 [Intersection with triangles and spheres](#22-intersection-with-triangles-and-spheres)
+
+    2.3 [Reflection, refraction and absorption](#23-reflection-refraction-and-absorption)
+
+3. [Photon-map](#3-photon-map)
+
+    3.1 [The balanced kd-tree data structure](#31-the-balanced-kd-tree-data-structure)
+
+4. [Rendering Pass](#4-rendering-pass)
+
+    4.1 [Ray tracing](#41-ray-tracing) 
+        
+    4.2 [Estimation of radiance](#42-estimation-of-radiance)
+
+5. [Discussion & Conclusion](#5-discussion-&-conclusion)
+    
+    5.1 [Evaluation](#51-evaluation)
+
+    5.2 [Optimizations](#52-optimizations)
+
+
+#### 1. The test environment
+
+Glass sphere + diffuse cube in the Cornell box
+
+#### 2. Photon Tracing
+
+##### 2.1 Light source & Photon Emission 
 
 During the photon tracing pass photons are emitted from the light sources of
 the scene and according to their distribution of emissive power. For instance,
@@ -40,7 +62,9 @@ of (Jensen & Christensen, 2000).
 emit_photons_from_diffuse_point_light() {
     n_e = 0  //  number of emitted photons
     while (not enough photons) {
-        do { // use simple rejection sampling to find diffuse photon direction
+       // use simple rejection sampling to find 
+       // diffuse photon direction
+       do { 
             x = random number between -1 and 1
             y = random number between -1 and 1
             z = random number between -1 and 1
@@ -53,6 +77,19 @@ emit_photons_from_diffuse_point_light() {
     scale power of stored photons with 1/n_e
 }
 ```
+
+##### 2.2 Intersection with triangles and spheres
+
+##### 2.3 Reflection, refraction and absorption 
+
+(Fresnel & calculation of power of new photon)
+
+(picture of photons paths + picture of photons color at intersection points)
+
+Caustics 
+
+(picture of photons on caustics)
+
 
 Each photon is stored (at diffuse surfaces) and absorbed(A) or reflected(R) or
 transmitted(T). The following equality applies:
@@ -91,14 +128,11 @@ uniform_random_PSA(n) {
     φ = 2.0 * π * rand()
     x = r * cos(φ)
     y = r * sin(φ)
-    [u, v, w] = createLocalCoord(n)    // local (orthogonal) coordinate
-                                       // system around n
+    [u, v, w] = create local (orthogonal) coordinate
+                system around n
     return x*u + y*v + z*w
 }
 ```
-
-Note that the photon map is view independent, and therefore it can be 
-utilized to render the scene from any desired view. 
 
 After building the photon map, we can later use it in the rendering pass to 
 compute estimates of the incoming flux and the reflected radiance at
@@ -120,29 +154,43 @@ while (we want more photons) {
 build the kd-tree 
 ```
 
-##### The balanced kd-tree data structure
+#### 3. Photon-map
+
+(when photons are added to the photon map)
+
+##### 3.1 The balanced kd-tree data structure
 
 A generic nearest neighbors search algorithm begins at the root of the kd-
 tree, and adds photons to a list if they are within a certain distance.
 
-#### 1.2 Rendering Pass
 
-Ray tracer... 
+#### 4. Rendering Pass
 
-TODO
+Note that the photon map is view independent, and therefore it can be 
+utilized to render the scene from any desired view. 
 
-+ image of photons positions
-+ image of photons paths
-+ different renders varying number of photons
-+ photonmap for direct & indirect lighting
-+ direct lighting using ray-tracing + photonmap for indirect light
-+ caustics?
+##### 4.1 Ray tracing 
+        
+##### 4.2 Estimation of radiance
+      
+(sphere vs triangles & direct lighting)
 
-### 2. Evaluation
+(pictures of different number of emitted photons)
 
-### 3. Discussion & Conclusion
+(pictures of using photon-maps with and without direct lighting)
 
-optimizations: projection maps
+(pictures of different values of k-NN photons)
+
+(picture with and without Fresnel coefficient)
+
+
+### 5. Discussion & Conclusion
+
+#### 5.1 Evaluation
+
+#### 5.2 Optimizations
+
+Optimizations: projection maps
 
 ### References
 
