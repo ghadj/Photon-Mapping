@@ -41,3 +41,6 @@ cmake_install.cmake
 # Vim files
 *.swp
 *.vim
+
+# Output files
+*.bmp
