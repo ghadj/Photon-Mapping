@@ -117,15 +117,28 @@ bool Refract(const Sphere s, const vec3 photon_dir,
 }
 
 /**
- * @brief Calculates the reflection vector.
+ * @brief Calculates the intersection of a photon after hitting and being
+ *        reflected with the given sphere.
  *
- * @param photon_dir     Direction of the photon.
- * @param surface_normal Normal vector of the surface.
- * @return vec3          Direction after reflection.
+ * @param s          The sphere the photon hits.
+ * @param photon_dir Direction of the photon.
+ * @param triangles  Vector of all the triangles in the scene.
+ * @param spheres    Vector of all the spheres in the scene.
+ * @param i          Intersection with the given sphere.
+ * @param j          Intersection after the photon is refracted by the sphere.
+ * @return true      The photon hits the sphere, is refracted and hits another
+ *                   surface succesfully.
+ * @return false     There is no refraction (total internal reflection) or the
+ *                   photon does not intersect with a surface after refraction.
  */
-vec3 Reflect(vec3 photon_dir, vec3 surface_normal)
+bool Reflect(const Sphere s, const vec3 photon_dir,
+             const vector<Triangle> &triangles, const vector<Sphere> &spheres,
+             const Intersection &i, Intersection &j) 
 {
-    return photon_dir - 2.0f * surface_normal * glm::dot(photon_dir, surface_normal);
+    vec3 sphere_normal = glm::normalize(i.position - s.center); // normal at intersection point
+    vec3 dir_reflect = photon_dir - 2.0f * sphere_normal * 
+                       glm::dot(photon_dir, sphere_normal);
+    return ClosestIntersection(i.position, dir_reflect, triangles, spheres, j);
 }
 
 /**

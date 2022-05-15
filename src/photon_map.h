@@ -19,8 +19,8 @@ using glm::ivec2;
 using glm::vec3;
 
 // Screen Dimensions
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 512;
+const int SCREEN_HEIGHT = 512;
 
 // Camera parameters
 const float FOCAL_LENGTH = SCREEN_HEIGHT;
@@ -28,13 +28,13 @@ const vec3 CAMERA_POS(0, 0, -3); // Position of the camera
 
 // Light parameters
 const vec3 LIGHT_POS(0, -0.5, -0.4);
-const vec3 LIGHT_COLOR = 3.0f * vec3(1, 1, 0.95);
-const vec3 LIGHT_POWER = 60.f * vec3(1, 1, 1);
+const vec3 LIGHT_COLOR = 5.0f * vec3(1, 1, 0.95);
+const vec3 LIGHT_POWER = 250.f * vec3(1, 1, 0.95);
 
 // Photon-map parameters
-const int K_NEAREST = 500;           // Number of nearest photons
+const int K_NEAREST = 550;           // Number of nearest photons
 const float CONE_FILTER_CONST = 1.2; // Cone-filter constant
-const int NUM_PHOTONS = 5000;        // Total number of photons from light source
+const int NUM_PHOTONS = 50000;        // Total number of photons from light source
 
 // Global variables
 vector<Photon> photons;

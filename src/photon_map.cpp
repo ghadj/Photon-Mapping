@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     cout << "Render time: " << dt << " ms." << endl;
 
     // Save rendered image
-    SDL_SaveBMP(screen, "screenshot.bmp");
+    SDL_SaveBMP(screen, "output.bmp");
 
     return 0;
 }
@@ -97,11 +97,10 @@ vec3 GetRadianceSphere(const Intersection &i)
 
     float f = Fresnel(glm::normalize(i.position - CAMERA_POS),
                       glm::normalize(i.position - spheres[i.sphere_index].center));
-    float c = max(0.0, min(1.0, 1.5 * f));
+    float c = max(0.0, min(1.0, 1.7 * f));
 
-    vec3 dir_reflect = Reflect(glm::normalize(i.position - CAMERA_POS),
-                               glm::normalize(i.position - spheres[i.sphere_index].center));
-    ClosestIntersection(i.position, dir_reflect, triangles, spheres, intersection_reflect);
+    Reflect(spheres[i.sphere_index], glm::normalize(i.position - CAMERA_POS),
+            triangles, spheres, i, intersection_reflect);
 
     return (1 - c) * GetRadianceTriangle(intersection_refract) +
            (c)*GetRadianceTriangle(intersection_reflect);
@@ -178,7 +177,7 @@ void EmitPhotons(int num_photons)
 
         photon_dir = vec3(x, y, z);
 
-        Photon p(photon_dir, LIGHT_POS, LIGHT_POWER / (float)num_photons);
+        Photon p(photon_dir, LIGHT_POS, LIGHT_POWER / (float)num_photons, 1);
         TracePhoton(p);
     }
 }
@@ -194,9 +193,18 @@ void TracePhoton(Photon &p)
 
     if (i.sphere_index >= 0)
     {
-        // j is the intersection after refraction
-        Refract(spheres[i.sphere_index], p.direction, triangles, spheres, i, j);
-
+        // Fresnel coefficient to decide to refract/reflect
+        if(GetRandomNum(0) < Fresnel(glm::normalize(p.direction),
+            glm::normalize(i.position - spheres[i.sphere_index].center)))
+        {
+            Reflect(spheres[i.sphere_index], glm::normalize(p.direction),
+                    triangles, spheres, i, j);
+        }
+        else
+        {
+            Refract(spheres[i.sphere_index], p.direction, triangles,
+                    spheres, i, j);
+        }
         p.destination = j.position;
         photons.push_back(p);
         std::swap(i, j);
@@ -204,17 +212,17 @@ void TracePhoton(Photon &p)
     else
     {
         p.destination = i.position;
-        if (p.bounces != 0)
+        if (p.bounces > 1)
             photons.push_back(p);
     }
 
     // New photon
     Photon p2(GetRandomDirection(triangles[i.triangle_index].normal),                    // normal vector
               i.position,                                                                // position of source
-              p.energy * triangles[i.triangle_index].color / (float)sqrt(p.bounces + 1), // power
+              p.energy * triangles[i.triangle_index].color / (float)sqrt(p.bounces + 3), // power
               p.bounces + 1);                                                            // increase bounces
 
-    if (GetRandomNum(0) < 0.8)
+    if (p.bounces == 1 || GetRandomNum(0) < 0.5) // Diffuse or absorb
         TracePhoton(p2);
 }
 
