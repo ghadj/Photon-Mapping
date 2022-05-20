@@ -12,10 +12,6 @@ Purpose of this project is the implementation of the Photon-Mapping Algorithm on
 a CPU renderer. The implementation is tested on a variation of the Cornell Box
 scene.
 
-### Keywords
-
-Global Illumination;Photon-Mapping;Ray-Tracing;CPU renderer;
-
 ### Table of Contents
 
 1. [The test environment](#1-the-test-environment)
@@ -178,7 +174,9 @@ different cases (from left to right):
 For cases (4) and (5) the photon does not intersect with the
 sphere.
 
-![Illustration of the five difference cases for intersection of a line with a sphere. Notations t0 and t1 represent the distance of the intersection points from photon's origin. Adopted from (Scratchapixel, 2014).](./figures/102.png)
+![](./figures/102.png)
+
+Fig. Illustration of the five difference cases for intersection of a line with a sphere. Notations t0 and t1 represent the distance of the intersection points from photon's origin. Adopted from (Scratchapixel, 2014).
 
 
 ### 2.3 Reflection, refraction and absorption 
@@ -273,11 +271,15 @@ the photon will exit, resulting in a new direction using the same above
 equations. At the end, using the exit point and the final direction, we
 calculate the closest intersection with other objects in the scene.
 
-![Illustration of tracing photons emitted from the light source. Each line represents the path of a photon from its origin to the intersection point. The color of the lines is based on the photon's energy. Notice that when a photon hits the red (left) or blue (right) wall, changes color. The illustration does not take into account the intersection point with the sphere, only the final destination after reflection/refraction, so the paths of the photons intersected with the sphere are shown as straight lines, even though this is not the case. ](./figures/02.bmp)
+![](./figures/02.bmp)
+
+Fig. Illustration of tracing photons emitted from the light source. Each line represents the path of a photon from its origin to the intersection point. The color of the lines is based on the photon's energy. Notice that when a photon hits the red (left) or blue (right) wall, changes color. The illustration does not take into account the intersection point with the sphere, only the final destination after reflection/refraction, so the paths of the photons intersected with the sphere are shown as straight lines, even though this is not the case. 
 
 Each time a photon hits a surface, a certain amount of its energy is absorbed. This is simulated by multiplying the current energy of the photon with the color of intersecting surface. This creates the color bleeding effect, i.e., surfaces to be colored by the reflections of colored light due to other nearby surfaces.
 
-![Illustration of photons' energy at intersection points. White points are created from photons emitted from the light source without bouncing on any surface before the intersection. Notice that the left side of the cube is colored red, due to the photons reflected by the red wall, whereas on the right side there are more blue dots due to the blue wall. In addition, on the bottom right corner we can clearly see the concentration of photons refracted by the glass sphere.](./figures/03.bmp)
+![](./figures/03.bmp)
+
+Fig. Illustration of photons' energy at intersection points. White points are created from photons emitted from the light source without bouncing on any surface before the intersection. Notice that the left side of the cube is colored red, due to the photons reflected by the red wall, whereas on the right side there are more blue dots due to the blue wall. In addition, on the bottom right corner we can clearly see the concentration of photons refracted by the glass sphere.
 
 Considering all the above, photon tracing could be summarized in the following
 pseudocode:
@@ -460,9 +462,13 @@ calculated for the case of specular reflection and refraction and then
 normalized by the Fresnel coefficient. This results in more visible reflection
 close to the edges of the sphere compared to its center.
 
-![Rendering of the scene by calculating direct light separately and using the photon-map only for indirect light (left) and calculating both direct and indirect light using the photon-map (right). 50,000 photons were emitted from the light source in both cases, but in the first case only the reflected were stored in the photon-map. For each point the 500 nearest photons were considerd in the radiance estimate.](./figures/05.bmp)
+![](./figures/05.bmp)
 
-![Rendering the glass sphere without (left) and with (right) considering the Fresnel coefficient. On the left the sphere is rendered only by refracting the light rays, whereas on the right we can see the contribution of both reflected and refracted light.](./figures/04.bmp)
+Fig. Rendering of the scene by calculating direct light separately and using the photon-map only for indirect light (left) and calculating both direct and indirect light using the photon-map (right). 50,000 photons were emitted from the light source in both cases, but in the first case only the reflected were stored in the photon-map. For each point the 500 nearest photons were considerd in the radiance estimate.
+
+![](./figures/04.bmp)
+
+Fig. Rendering the glass sphere without (left) and with (right) considering the Fresnel coefficient. On the left the sphere is rendered only by refracting the light rays, whereas on the right we can see the contribution of both reflected and refracted light.
 
 
 ## 5. Discussion & Conclusion
