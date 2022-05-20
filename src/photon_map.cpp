@@ -177,7 +177,7 @@ void EmitPhotons(int num_photons)
 
         photon_dir = vec3(x, y, z);
 
-        Photon p(photon_dir, LIGHT_POS, LIGHT_POWER / (float)num_photons, 1);
+        Photon p(photon_dir, LIGHT_POS, LIGHT_POWER / (float)num_photons, 0);
         TracePhoton(p);
     }
 }
@@ -212,18 +212,20 @@ void TracePhoton(Photon &p)
     else
     {
         p.destination = i.position;
-        if (p.bounces > 1)
+        if (p.bounces > 0)
             photons.push_back(p);
     }
 
-    // New photon
-    Photon p2(GetRandomDirection(triangles[i.triangle_index].normal),                    // normal vector
-              i.position,                                                                // position of source
-              p.energy * triangles[i.triangle_index].color / (float)sqrt(p.bounces + 3), // power
-              p.bounces + 1);                                                            // increase bounces
+    if (p.bounces == 0 || GetRandomNum(0) < 0.5) // Diffuse or absorb
+    {
+        // New photon
+        Photon p2(GetRandomDirection(triangles[i.triangle_index].normal),                    // normal vector
+                  i.position,                                                                // position of source
+                  p.energy * triangles[i.triangle_index].color / (float)sqrt(p.bounces + 1), // power
+                  p.bounces + 1);                                                            // increase bounces
 
-    if (p.bounces == 1 || GetRandomNum(0) < 0.5) // Diffuse or absorb
         TracePhoton(p2);
+    }
 }
 
 ivec2 VertexShader(vec3 p)
